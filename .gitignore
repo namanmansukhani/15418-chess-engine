@@ -1,0 +1,38 @@
+# .gitignore from https://gist.github.com/alext234/685d4100b0fb110e874d095797259978
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# build directory typically used with cmake
+build
+
+# vim swap files
+*.swn
+*.swp
+*.swo
