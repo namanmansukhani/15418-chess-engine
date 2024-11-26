@@ -1,9 +1,9 @@
 #include "serial-engine.h"
-#include <algorithm> 
-#include <map>
-
-#include "serial-engine.h"
 #include <algorithm>
+#include <map>
+#include <cctype>   // For isupper and tolower
+#include <cmath>    // For abs
+#include <iostream>
 
 // Piece-square tables for evaluation
 const int pawn_table[64] = {
@@ -78,163 +78,29 @@ const int king_table[64] = {
      20, 30, 10,  0,  0, 10, 30, 20
 };
 
-#include "serial-engine.h"
-#include <algorithm>
-#include <map>
-#include <cctype> // For isupper and islower
-#include <cmath>  // For abs
-
-// Piece-square tables and other code remain unchanged
-
-SerialEngine::Score SerialEngine::static_eval(thc::ChessRules& cr) {
-    Score total_score = 0.0f;
-    int total_material = 0;
-
-    // Variables to store king positions
-    int white_king_index = -1;
-    int black_king_index = -1;
-
-    for (int i = 0; i < 64; i++) {
-        char piece = cr.squares[i];
-        Score piece_value = 0.0f;
-        float positional_bonus = 0.0f;
-
-        // The indices in the piece-square tables correspond to the board from White's perspective.
-        // For Black pieces, we need to flip the index.
-        int index = i;
-        int flipped_index = 63 - i; // Flips the board for Black
-
-        switch (piece) {
-            case 'P':
-                piece_value = 1.0f;
-                positional_bonus = pawn_table[index] / 100.0f;
-                total_material += 1;
-                break;
-            case 'N':
-                piece_value = 3.0f;
-                positional_bonus = knight_table[index] / 100.0f;
-                total_material += 3;
-                break;
-            case 'B':
-                piece_value = 3.0f;
-                positional_bonus = bishop_table[index] / 100.0f;
-                total_material += 3;
-                break;
-            case 'R':
-                piece_value = 5.0f;
-                positional_bonus = rook_table[index] / 100.0f;
-                total_material += 5;
-                break;
-            case 'Q':
-                piece_value = 9.0f;
-                positional_bonus = queen_table[index] / 100.0f;
-                total_material += 9;
-                break;
-            case 'K':
-                piece_value = 1000.0f; // Assign a high value to the King
-                positional_bonus = king_table[index] / 100.0f;
-                white_king_index = i;
-                break;
-            case 'p':
-                piece_value = -1.0f;
-                positional_bonus = -pawn_table[flipped_index] / 100.0f;
-                total_material += 1;
-                break;
-            case 'n':
-                piece_value = -3.0f;
-                positional_bonus = -knight_table[flipped_index] / 100.0f;
-                total_material += 3;
-                break;
-            case 'b':
-                piece_value = -3.0f;
-                positional_bonus = -bishop_table[flipped_index] / 100.0f;
-                total_material += 3;
-                break;
-            case 'r':
-                piece_value = -5.0f;
-                positional_bonus = -rook_table[flipped_index] / 100.0f;
-                total_material += 5;
-                break;
-            case 'q':
-                piece_value = -9.0f;
-                positional_bonus = -queen_table[flipped_index] / 100.0f;
-                total_material += 9;
-                break;
-            case 'k':
-                piece_value = -1000.0f; // Assign a high negative value to the King
-                positional_bonus = -king_table[flipped_index] / 100.0f;
-                black_king_index = i;
-                break;
-            default:
-                break;
-        }
-
-        Score square_score = piece_value + positional_bonus;
-        total_score += square_score;
-    }
-
-    // Determine if it's the endgame
-    bool is_endgame = total_material <= 14; // Adjust threshold as needed
-
-    // Add evaluation for enemy king being near the edge
-    if (black_king_index != -1) {
-        int black_king_rank = black_king_index / 8;
-        int black_king_file = black_king_index % 8;
-
-        int distance_to_edge = std::min({black_king_rank, 7 - black_king_rank, black_king_file, 7 - black_king_file});
-
-        // The closer the enemy king is to the edge, the higher the bonus
-        float king_edge_bonus = (3 - distance_to_edge) * 0.2f; // Adjust scaling factor as needed
-        total_score += king_edge_bonus;
-    }
-
-    // Add evaluation for king proximity during endgame
-    if (is_endgame && white_king_index != -1 && black_king_index != -1) {
-        int white_king_rank = white_king_index / 8;
-        int white_king_file = white_king_index % 8;
-        int black_king_rank = black_king_index / 8;
-        int black_king_file = black_king_index % 8;
-
-        // Calculate Manhattan distance between the kings
-        int king_distance = std::abs(white_king_rank - black_king_rank) + std::abs(white_king_file - black_king_file);
-
-        // The closer the kings are, the higher the bonus
-        float king_proximity_bonus = (14 - king_distance) * 0.1f; // Adjust scaling factor as needed
-        total_score += king_proximity_bonus;
-    }
-
-    return total_score;
-}
-
-
-float score_move(const thc::Move& move, thc::ChessRules& cr) {
+// Helper function for move scoring
+float SerialEngine::score_move(const thc::Move& move, thc::ChessRules& cr) {
     float score = 0.0f;
 
     // Check if the move is a capture
     if (move.capture != ' ') {
         // Assign a higher score for capturing higher-value pieces
-        switch (move.capture) {
+        switch (tolower(move.capture)) {
             case 'p': score += 1.0f; break;
             case 'n': score += 3.0f; break;
             case 'b': score += 3.0f; break;
             case 'r': score += 5.0f; break;
             case 'q': score += 9.0f; break;
-            case 'k': score += 1000.0f; break; // Very high for king (illegal in chess but handled for consistency)
+            case 'k': score += 1000.0f; break; // King capture (shouldn't happen)
         }
     }
 
-    // Check if the move results in a pawn promotion
-    if (move.special == thc::SPECIAL_PROMOTION_QUEEN) {
-        score += 9.0f; // Promoting to a queen
-    } else if (move.special == thc::SPECIAL_PROMOTION_ROOK) {
-        score += 5.0f; // Promoting to a rook
-    } else if (move.special == thc::SPECIAL_PROMOTION_BISHOP) {
-        score += 3.0f; // Promoting to a bishop
-    } else if (move.special == thc::SPECIAL_PROMOTION_KNIGHT) {
-        score += 3.0f; // Promoting to a knight
+    // Check for promotions
+    if (move.special >= thc::SPECIAL_PROMOTION_QUEEN && move.special <= thc::SPECIAL_PROMOTION_KNIGHT) {
+        score += 9.0f; // Adjust as needed for different promotions
     }
 
-    // Add positional bonus based on piece-square tables
+    // Positional gain
     int from_index = static_cast<int>(move.src);
     int to_index = static_cast<int>(move.dst);
     char piece = cr.squares[from_index];
@@ -264,11 +130,375 @@ float score_move(const thc::Move& move, thc::ChessRules& cr) {
 
     return score;
 }
+int SerialEngine::evaluate_mobility(thc::ChessRules& cr, bool is_white, const std::vector<int>& piece_indices) {
+    int mobility_score = 0;
+    thc::ChessRules cr_copy = cr;
+    std::vector<thc::Move> moves;
+    cr_copy.GenLegalMoveList(moves);
+
+    for (const auto& move : moves) {
+        char piece = cr_copy.squares[move.src];
+        if ((is_white && isupper(piece)) || (!is_white && islower(piece))) {
+            char lower_piece = tolower(piece);
+            switch (lower_piece) {
+                case 'n': mobility_score += 4; break;
+                case 'b': mobility_score += 4; break;
+                case 'r': mobility_score += 2; break;
+                case 'q': mobility_score += 1; break;
+                default: break;
+            }
+        }
+    }
+
+    return mobility_score;
+}
+
+int SerialEngine::evaluate_pawn_structure(const std::vector<int>& pawn_files, bool is_white) {
+    int score = 0;
+
+    // Count pawns on each file
+    int file_counts[8] = {0};
+    for (int file : pawn_files) {
+        file_counts[file]++;
+    }
+
+    // Evaluate pawn structure
+    int pawn_islands = 0;
+    bool in_island = false;
+
+    for (int i = 0; i < 8; ++i) {
+        if (file_counts[i] > 0) {
+            // Check for doubled pawns
+            if (file_counts[i] > 1) {
+                score -= 10 * (file_counts[i] - 1); // Penalty for doubled pawns
+            }
+            if (!in_island) {
+                in_island = true;
+                pawn_islands++;
+            }
+        } else {
+            in_island = false;
+        }
+    }
+
+    // Penalty for more pawn islands
+    score -= 5 * (pawn_islands - 1);
+
+    // Evaluate isolated pawns
+    for (int i = 0; i < 8; ++i) {
+        if (file_counts[i] > 0) {
+            bool has_adjacent_pawns = false;
+            if (i > 0 && file_counts[i - 1] > 0) has_adjacent_pawns = true;
+            if (i < 7 && file_counts[i + 1] > 0) has_adjacent_pawns = true;
+            if (!has_adjacent_pawns) {
+                score -= 15; // Penalty for isolated pawns
+            }
+        }
+    }
+
+    return score;
+}
+
+int SerialEngine::evaluate_king_safety(thc::ChessRules& cr, int king_index, bool is_white, bool endgame) {
+    int safety_score = 0;
+
+    if (king_index == -1) return safety_score; // King not found
+
+    if (endgame) {
+        // In the endgame, the king can be more active
+        return safety_score; // No penalties in endgame
+    }
+
+    // Existing king safety evaluation
+    // Evaluate pawn shield, exposure, threats, etc.
+
+    int rank = king_index / 8;
+    int file = king_index % 8;
+
+    // Evaluate pawn shield
+    int pawn_shield_bonus = 0;
+    int direction = is_white ? -1 : 1; // Direction towards opponent
+
+    for (int df = -1; df <= 1; ++df) {
+        int shield_rank = rank + direction;
+        int shield_file = file + df;
+        if (shield_rank >= 0 && shield_rank <= 7 && shield_file >= 0 && shield_file <= 7) {
+            int shield_index = shield_rank * 8 + shield_file;
+            char shield_piece = cr.squares[shield_index];
+            if ((is_white && shield_piece == 'P') || (!is_white && shield_piece == 'p')) {
+                pawn_shield_bonus += 10;
+            }
+        }
+    }
+
+    safety_score += pawn_shield_bonus;
+
+    // Penalty for open files or lack of pawn shield
+    if (pawn_shield_bonus == 0) {
+        safety_score -= 20; // King is exposed
+    }
+
+    // Additional king safety factors can be added here...
+
+    return safety_score;
+}
+
+int SerialEngine::evaluate_king_activity(int own_king_index, int opponent_king_index, bool is_white) {
+    int activity_score = 0;
+
+    int rank = own_king_index / 8;
+    int file = own_king_index % 8;
+
+    // Centralization bonus
+    float center_rank = 3.5f;
+    float center_file = 3.5f;
+    float distance_to_center = std::abs(rank - center_rank) + std::abs(file - center_file);
+    activity_score -= static_cast<int>(distance_to_center * 5); // Encourage centralization
+
+    // Proximity to opponent's king
+    int opponent_rank = opponent_king_index / 8;
+    int opponent_file = opponent_king_index % 8;
+    int king_distance = std::abs(rank - opponent_rank) + std::abs(file - opponent_file);
+    activity_score -= king_distance * 2; // Encourage approaching opponent's king
+
+    // Adjust king safety considerations
+    // The king is less likely to be attacked in endgame
+    activity_score += 20; // Reduce penalties for exposure
+
+    return activity_score;
+}
 
 
-SerialEngine::Score SerialEngine::solve_serial_engine(thc::ChessRules cr, bool is_white_player, thc::Move& best_move, int depth, Score alpha_score, Score beta_score) {
-    if (depth == MAX_DEPTH) {
-        return static_eval(cr);
+const int ENDGAME_MATERIAL_THRESHOLD = 2400; // Adjust based on testing
+
+bool SerialEngine::is_endgame(int white_material, int black_material) {
+    int total_material = white_material + black_material;
+    return total_material <= ENDGAME_MATERIAL_THRESHOLD; // Define a threshold, e.g., 2400 (two rooks)
+}
+
+SerialEngine::Score SerialEngine::static_eval(thc::ChessRules& cr) {
+    Score total_score = 0.0f;
+
+    // Material counts
+    int white_material = 0;
+    int black_material = 0;
+
+    // Piece counts for bishop pair evaluation
+    int white_bishops = 0;
+    int black_bishops = 0;
+
+    // King positions
+    int white_king_index = -1;
+    int black_king_index = -1;
+
+    // Variables for pawn structure
+    std::vector<int> white_pawn_files;
+    std::vector<int> black_pawn_files;
+
+    // Piece positions for mobility evaluation
+    std::vector<int> white_piece_indices;
+    std::vector<int> black_piece_indices;
+
+    // Evaluate material and positional bonuses
+    for (int i = 0; i < 64; i++) {
+        char piece = cr.squares[i];
+        if (piece == ' ')
+            continue;
+
+        int index = i;
+        int flipped_index = 63 - i; // Flips the board for Black
+        int piece_value = 0;
+        float positional_bonus = 0.0f;
+
+        bool is_white = isupper(piece);
+        char lower_piece = tolower(piece);
+
+        switch (lower_piece) {
+            case 'p':
+                piece_value = 100;
+                positional_bonus = pawn_table[is_white ? index : flipped_index] / 1.0f;
+                if (is_white) {
+                    white_material += piece_value;
+                    white_pawn_files.push_back(index % 8);
+                } else {
+                    black_material += piece_value;
+                    black_pawn_files.push_back(index % 8);
+                }
+                break;
+            case 'n':
+                piece_value = 320;
+                positional_bonus = knight_table[is_white ? index : flipped_index] / 1.0f;
+                if (is_white) {
+                    white_material += piece_value;
+                    white_piece_indices.push_back(index);
+                } else {
+                    black_material += piece_value;
+                    black_piece_indices.push_back(index);
+                }
+                break;
+            case 'b':
+                piece_value = 330;
+                positional_bonus = bishop_table[is_white ? index : flipped_index] / 1.0f;
+                if (is_white) {
+                    white_material += piece_value;
+                    white_bishops++;
+                    white_piece_indices.push_back(index);
+                } else {
+                    black_material += piece_value;
+                    black_bishops++;
+                    black_piece_indices.push_back(index);
+                }
+                break;
+            case 'r':
+                piece_value = 500;
+                positional_bonus = rook_table[is_white ? index : flipped_index] / 1.0f;
+                if (is_white) {
+                    white_material += piece_value;
+                    white_piece_indices.push_back(index);
+                } else {
+                    black_material += piece_value;
+                    black_piece_indices.push_back(index);
+                }
+                break;
+            case 'q':
+                piece_value = 900;
+                positional_bonus = queen_table[is_white ? index : flipped_index] / 1.0f;
+                if (is_white) {
+                    white_material += piece_value;
+                    white_piece_indices.push_back(index);
+                } else {
+                    black_material += piece_value;
+                    black_piece_indices.push_back(index);
+                }
+                break;
+            case 'k':
+                piece_value = 20000; // High value for the King
+                positional_bonus = king_table[is_white ? index : flipped_index] / 1.0f;
+                if (is_white) {
+                    white_king_index = index;
+                } else {
+                    black_king_index = index;
+                }
+                break;
+            default:
+                break;
+        }
+
+        Score square_score = piece_value + positional_bonus;
+        if (is_white) {
+            total_score += square_score;
+        } else {
+            total_score -= square_score;
+        }
+    }
+
+    // Bishop pair bonus
+    if (white_bishops >= 2) total_score += 50;
+    if (black_bishops >= 2) total_score -= 50;
+
+    // Mobility evaluation
+    total_score += evaluate_mobility(cr, true, white_piece_indices);
+    total_score -= evaluate_mobility(cr, false, black_piece_indices);
+
+    // Pawn structure evaluation
+    total_score += evaluate_pawn_structure(white_pawn_files, true);
+    total_score -= evaluate_pawn_structure(black_pawn_files, false);
+
+    // King safety evaluation
+
+    bool endgame = is_endgame(white_material, black_material);
+
+    total_score += evaluate_king_safety(cr, white_king_index, true, endgame);
+    total_score -= evaluate_king_safety(cr, black_king_index, false, endgame);
+
+    // Additional evaluations can be added here...
+
+    // After calculating total material
+    
+    // Evaluate king activity in endgame
+    if (endgame) {
+        total_score += evaluate_king_activity(white_king_index, black_king_index, true);
+        total_score -= evaluate_king_activity(black_king_index, white_king_index, false);
+    }
+
+
+    return total_score;
+}
+
+thc::Move SerialEngine::solve(thc::ChessRules& cr, bool is_white_player) {
+    this->time_limit_reached = false;
+    this->start_time = std::chrono::steady_clock::now();
+
+    thc::Move best_move_so_far;
+    bool move_found = false;
+
+    for (int current_depth = 1; current_depth <= MAX_DEPTH; ++current_depth) {
+        if (time_limit_reached) {
+            break; // Time limit reached, break out of the loop
+        }
+
+        thc::Move current_best_move;
+        Score current_score = solve_serial_engine(
+            cr,
+            is_white_player,
+            current_best_move,
+            0,
+            current_depth, // Pass max_depth here
+            -INF_SCORE,
+            INF_SCORE
+        );
+
+        if (time_limit_reached) {
+            break; // Time limit reached during search
+        }
+
+        // Update the best move found so far
+        best_move_so_far = current_best_move;
+        move_found = true;
+
+        // Debug output (optional)
+        auto current_time = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed_seconds = current_time - start_time;
+        std::cout << "Depth: " << current_depth << ", Score: " << (current_score / 100.0f) << ", Time: " << elapsed_seconds.count() << "s" << std::endl;
+    }
+
+    if (move_found) {
+        return best_move_so_far;
+    } else {
+        // If no move was found (unlikely), generate a random legal move
+        std::vector<thc::Move> legal_moves;
+        cr.GenLegalMoveList(legal_moves);
+        if (!legal_moves.empty()) {
+            return legal_moves[0];
+        } else {
+            // No legal moves, return a default move
+            return thc::Move();
+        }
+    }
+}
+
+SerialEngine::Score SerialEngine::solve_serial_engine(
+    thc::ChessRules& cr,
+    bool is_white_player,
+    thc::Move& best_move,
+    int depth,
+    int max_depth,
+    Score alpha_score,
+    Score beta_score
+) {
+    // Check if time limit has been reached
+    if (time_limit_reached) {
+        return 0.0f;
+    }
+
+    // Check time at certain intervals to minimize performance impact
+    if (depth % 5 == 0) { // Adjust the modulus value as needed
+        auto current_time = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed_seconds = current_time - start_time;
+        if (elapsed_seconds.count() >= TIME_LIMIT_SECONDS) {
+            time_limit_reached = true;
+            return 0.0f;
+        }
     }
 
     thc::DRAWTYPE draw_reason;
@@ -286,6 +516,10 @@ SerialEngine::Score SerialEngine::solve_serial_engine(thc::ChessRules cr, bool i
         } else if (terminal == thc::TERMINAL_WSTALEMATE || terminal == thc::TERMINAL_BSTALEMATE) {
             return 0.0f; // Stalemate is a draw
         }
+    }
+
+    if (depth == max_depth) {
+        return static_eval(cr);
     }
 
     std::vector<thc::Move> legal_moves;
@@ -308,7 +542,6 @@ SerialEngine::Score SerialEngine::solve_serial_engine(thc::ChessRules cr, bool i
         return a.first > b.first;
     });
 
-    int best_move_id = -1;
     Score best_score = is_white_player ? -INF_SCORE : INF_SCORE;
 
     for (size_t i = 0; i < scored_moves.size(); i++) {
@@ -319,15 +552,30 @@ SerialEngine::Score SerialEngine::solve_serial_engine(thc::ChessRules cr, bool i
 
         // Recurse
         thc::Move temp_best_move;
-        Score current_score = solve_serial_engine(cr, !is_white_player, temp_best_move, depth + 1, alpha_score, beta_score);
+        Score current_score = solve_serial_engine(
+            cr,
+            !is_white_player,
+            temp_best_move,
+            depth + 1,
+            max_depth,
+            alpha_score,
+            beta_score
+        );
 
         // Pop the move
         cr.PopMove(move);
 
+        // Check if time limit was reached during recursion
+        if (time_limit_reached) {
+            return 0.0f;
+        }
+
         if (is_white_player) {
             if (current_score > best_score) {
-                best_move_id = i;
                 best_score = current_score;
+                if (depth == 0) {
+                    best_move = move;
+                }
                 alpha_score = std::max(alpha_score, best_score);
             }
             if (beta_score <= alpha_score) {
@@ -335,8 +583,10 @@ SerialEngine::Score SerialEngine::solve_serial_engine(thc::ChessRules cr, bool i
             }
         } else {
             if (current_score < best_score) {
-                best_move_id = i;
                 best_score = current_score;
+                if (depth == 0) {
+                    best_move = move;
+                }
                 beta_score = std::min(beta_score, best_score);
             }
             if (beta_score <= alpha_score) {
@@ -345,16 +595,5 @@ SerialEngine::Score SerialEngine::solve_serial_engine(thc::ChessRules cr, bool i
         }
     }
 
-    if (depth == 0 && best_move_id != -1) {
-        best_move = scored_moves[best_move_id].second;
-    }
-
     return best_score;
-}
-
-
-thc::Move SerialEngine::solve(thc::ChessRules& cr, bool is_white_player) {
-    thc::Move best_move;
-    auto score = solve_serial_engine(cr, is_white_player, best_move, 0, -INF_SCORE, INF_SCORE);
-    return best_move;
 }
