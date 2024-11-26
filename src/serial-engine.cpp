@@ -510,9 +510,9 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
     thc::TERMINAL terminal;
     if (cr.Evaluate(terminal)) {
         if (terminal == thc::TERMINAL_WCHECKMATE) {
-            return -INF_SCORE; // White is checkmated
+            return -INF_SCORE + depth; // White is checkmated
         } else if (terminal == thc::TERMINAL_BCHECKMATE) {
-            return INF_SCORE; // Black is checkmated
+            return INF_SCORE - depth; // Black is checkmated
         } else if (terminal == thc::TERMINAL_WSTALEMATE || terminal == thc::TERMINAL_BSTALEMATE) {
             return 0.0f; // Stalemate is a draw
         }
