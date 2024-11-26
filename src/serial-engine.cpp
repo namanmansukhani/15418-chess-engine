@@ -1,50 +1,156 @@
 #include "serial-engine.h"
-#include <algorithm> // For std::max and std::min
+#include <algorithm> 
+#include <map>
+
+#include "serial-engine.h"
+#include <algorithm>
+
+// Piece-square tables for evaluation
+const int pawn_table[64] = {
+    // Pawn
+     0,  0,  0,  0,  0,  0,  0,  0,
+    50, 50, 50, 50, 50, 50, 50, 50,
+    10, 10, 20, 30, 30, 20, 10, 10,
+     5,  5, 10, 25, 25, 10,  5,  5,
+     0,  0,  0, 20, 20,  0,  0,  0,
+     5, -5,-10,  0,  0,-10, -5,  5,
+     5, 10, 10,-20,-20, 10, 10,  5,
+     0,  0,  0,  0,  0,  0,  0,  0
+};
+
+const int knight_table[64] = {
+    // Knight
+    -50,-40,-30,-30,-30,-30,-40,-50,
+    -40,-20,  0,  0,  0,  0,-20,-40,
+    -30,  0, 10, 15, 15, 10,  0,-30,
+    -30,  5, 15, 20, 20, 15,  5,-30,
+    -30,  0, 15, 20, 20, 15,  0,-30,
+    -30,  5, 10, 15, 15, 10,  5,-30,
+    -40,-20,  0,  5,  5,  0,-20,-40,
+    -50,-40,-30,-30,-30,-30,-40,-50
+};
+
+const int bishop_table[64] = {
+    // Bishop
+    -20,-10,-10,-10,-10,-10,-10,-20,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+    -10,  0,  5, 10, 10,  5,  0,-10,
+    -10,  5,  5, 10, 10,  5,  5,-10,
+    -10,  0, 10, 10, 10, 10,  0,-10,
+    -10, 10, 10, 10, 10, 10, 10,-10,
+    -10,  5,  0,  0,  0,  0,  5,-10,
+    -20,-10,-10,-10,-10,-10,-10,-20
+};
+
+const int rook_table[64] = {
+    // Rook
+     0,  0,  0,  0,  0,  0,  0,  0,
+     5, 10, 10, 10, 10, 10, 10,  5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+     0,  0,  0,  5,  5,  0,  0,  0
+};
+
+const int queen_table[64] = {
+    // Queen
+    -20,-10,-10, -5, -5,-10,-10,-20,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+    -10,  0,  5,  5,  5,  5,  0,-10,
+     -5,  0,  5,  5,  5,  5,  0, -5,
+      0,  0,  5,  5,  5,  5,  0, -5,
+    -10,  5,  5,  5,  5,  5,  0,-10,
+    -10,  0,  5,  0,  0,  0,  0,-10,
+    -20,-10,-10, -5, -5,-10,-10,-20
+};
+
+const int king_table[64] = {
+    // King
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -20,-30,-30,-40,-40,-30,-30,-20,
+    -10,-20,-20,-20,-20,-20,-20,-10,
+     20, 20,  0,  0,  0,  0, 20, 20,
+     20, 30, 10,  0,  0, 10, 30, 20
+};
 
 SerialEngine::Score SerialEngine::static_eval(thc::ChessRules& cr) {
-    Score white_score = 0.0f;
-    Score black_score = 0.0f;
+    Score total_score = 0.0f;
 
     for (int i = 0; i < 64; i++) {
         char piece = cr.squares[i];
+        Score piece_value = 0.0f;
+        float positional_bonus = 0.0f;
+
+        // The indices in the piece-square tables correspond to the board from White's perspective.
+        // For Black pieces, we need to flip the index.
+        int index = i;
+        int flipped_index = 63 - i; // Flips the board for Black
+
         switch (piece) {
             case 'P':
-                white_score += 1.0f;
+                piece_value = 1.0f;
+                positional_bonus = pawn_table[index] / 100.0f;
                 break;
             case 'N':
-                white_score += 3.0f;
+                piece_value = 3.0f;
+                positional_bonus = knight_table[index] / 100.0f;
                 break;
             case 'B':
-                white_score += 3.0f;
+                piece_value = 3.0f;
+                positional_bonus = bishop_table[index] / 100.0f;
                 break;
             case 'R':
-                white_score += 5.0f;
+                piece_value = 5.0f;
+                positional_bonus = rook_table[index] / 100.0f;
                 break;
             case 'Q':
-                white_score += 9.0f;
+                piece_value = 9.0f;
+                positional_bonus = queen_table[index] / 100.0f;
+                break;
+            case 'K':
+                piece_value = 1000.0f; // Assign a high value to the King
+                positional_bonus = king_table[index] / 100.0f;
                 break;
             case 'p':
-                black_score += 1.0f;
+                piece_value = -1.0f;
+                positional_bonus = -pawn_table[flipped_index] / 100.0f;
                 break;
             case 'n':
-                black_score += 3.0f;
+                piece_value = -3.0f;
+                positional_bonus = -knight_table[flipped_index] / 100.0f;
                 break;
             case 'b':
-                black_score += 3.0f;
+                piece_value = -3.0f;
+                positional_bonus = -bishop_table[flipped_index] / 100.0f;
                 break;
             case 'r':
-                black_score += 5.0f;
+                piece_value = -5.0f;
+                positional_bonus = -rook_table[flipped_index] / 100.0f;
                 break;
             case 'q':
-                black_score += 9.0f;
+                piece_value = -9.0f;
+                positional_bonus = -queen_table[flipped_index] / 100.0f;
+                break;
+            case 'k':
+                piece_value = -1000.0f; // Assign a high negative value to the King
+                positional_bonus = -king_table[flipped_index] / 100.0f;
                 break;
             default:
                 break;
         }
+
+        Score square_score = piece_value + positional_bonus;
+        total_score += square_score;
     }
 
-    return white_score - black_score;
+    return total_score;
 }
+
 
 SerialEngine::Score SerialEngine::solve_serial_engine(thc::ChessRules cr, bool is_white_player, thc::Move& best_move, int depth, Score alpha_score, Score beta_score) {
     if (depth == MAX_DEPTH) {

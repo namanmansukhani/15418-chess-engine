@@ -1,20 +1,31 @@
-APP_NAME=chess-engine
+# Makefile for Chess Engine Project
 
-OBJS=main.o thc.o
-
+# Compiler and flags
 CXX = g++
 CXXFLAGS = -Wall -O3 -std=c++17
 
-#-m64 -I. -fopenmp -Wno-unknown-pragmas
+# Target executable
+TARGET = chess-engine
 
-all: $(APP_NAME)
+# Source files
+SRCS = main.cpp serial-engine.cpp thc.cpp
 
-$(APP_NAME): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS)
+# Object files (replace .cpp with .o)
+OBJS = $(SRCS:.cpp=.o)
 
+# Default rule
+all: $(TARGET)
+
+# Linking the executable
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
+
+# Compiling source files into object files
 %.o: %.cpp %.h
-	$(CXX) $(CXXFLAGS) -c $<
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+# Clean up build files
 clean:
-	/bin/rm -rf *~ *.o $(APP_NAME) *.class
+	rm -f $(TARGET) $(OBJS)
+
 

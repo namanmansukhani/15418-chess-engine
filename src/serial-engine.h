@@ -8,7 +8,7 @@ public:
     using Score = float;
 
     static constexpr Score INF_SCORE = 1000000.0f;
-    static constexpr int MAX_DEPTH = 3;
+    static constexpr int MAX_DEPTH = 6;
 
     thc::Move solve(thc::ChessRules& cr, bool is_white_player);
 

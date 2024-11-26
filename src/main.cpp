@@ -1,118 +1,141 @@
-/*
-
-    Simple demo of THC Chess library
-
-    This is a simple "hello world" exercise to get started with the THC chess library
-    Just compile and link with thc.cpp. You only need thc.cpp and thc.h to use the
-    THC library (see README.MD for more information)
-
- */
-
-#include <stdio.h>
+#include <iostream>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include "thc.h"
+#include "serial-engine.h"
 
-#include <iostream>
-
-void print(){std::cout<<std::endl;}
-void print(bool endline) {if(endline)std::cout<<std::endl;}
-template<typename T, typename ...TAIL>
-void print(const T &t, TAIL... tail)
-{
-    std::cout<<t<<' ';
-    print(tail...);
+void print_board(thc::ChessRules& cr) {
+    std::cout << cr.ToDebugStr() << std::endl;
 }
 
-template<typename T>
-void printl(const T &t) {
-    for (auto val: t) std::cout<<val<<' ';
-    print();
-}
+int main(int argc, char* argv[]) {
+    bool computer_is_white = false;
+    bool computer_is_black = false;
 
-void display_position( thc::ChessRules &cr, const std::string &description )
-{
-    std::string fen = cr.ForsythPublish();
-    std::string s = cr.ToDebugStr();
-    printf( "%s\n", description.c_str() );
-    printf( "FEN (Forsyth Edwards Notation) = %s\n", fen.c_str() );
-    printf( "Position = %s\n", s.c_str() );
-}
-
-int main()
-{
-    // Example 1, Play a few good moves from the initial position
-    thc::ChessRules cr;
-    display_position( cr, "Initial position" );
-    thc::Move mv;
-    mv.NaturalIn( &cr, "e4" );
-    cr.PlayMove(mv);
-    mv.NaturalIn( &cr, "e5" );
-    cr.PlayMove(mv);
-    mv.NaturalIn( &cr, "Nf3" );
-    cr.PlayMove(mv);
-    mv.NaturalIn( &cr, "Nc6" );
-    cr.PlayMove(mv);
-    mv.NaturalIn( &cr, "Bc4" );
-    cr.PlayMove(mv);
-    mv.NaturalIn( &cr, "Bc5" );
-    cr.PlayMove(mv);
-    display_position( cr, "Starting position of Italian opening, after 1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5" );
-
-    printf( "List of all legal moves in the current position\n" );
-    std::vector<thc::Move> moves;
-    std::vector<bool> check;
-    std::vector<bool> mate;
-    std::vector<bool> stalemate;
-    cr.GenLegalMoveList(  moves, check, mate, stalemate );
-    unsigned int len = moves.size();
-    for( unsigned int i=0; i<len; i++ )
-    {
-        mv = moves[i];
-        std::string mv_txt = mv.NaturalOut(&cr);
-        const char *suffix="";
-        if( check[i] )
-            suffix = " (note '+' indicates check)";
-        else if( mate[i] )
-            suffix = " (note '#' indicates mate)";
-        printf( "4.%s%s\n", mv_txt.c_str(), suffix );
+    // Parse command-line arguments
+    if (argc > 1) {
+        std::string arg = argv[1];
+        if (arg == "--white") {
+            computer_is_white = true;
+        } else if (arg == "--black") {
+            computer_is_black = true;
+        } else {
+            std::cout << "Usage: " << argv[0] << " [--white | --black]" << std::endl;
+            return 1;
+        }
+    } else {
+        // Default to computer playing black
+        computer_is_black = true;
     }
 
-    // Example 2, The shortest game leading to mate
-    printf("\n");
-    thc::ChessRules cr2;
-    cr = cr2;
-    display_position( cr, "Initial position" );
-    mv.TerseIn( &cr, "g2g4" );
-    std::string description = "Position after 1." + mv.NaturalOut(&cr);
-    cr.PlayMove(mv);
-    display_position( cr, description );
-    mv.TerseIn( &cr, "e7e5" );
-    description = "Position after 1..." + mv.NaturalOut(&cr);
-    cr.PlayMove(mv);
-    display_position( cr, description );
-    mv.TerseIn( &cr, "f2f4" );
-    description = "Position after 2." + mv.NaturalOut(&cr);
-    cr.PlayMove(mv);
-    thc::TERMINAL eval_penultimate_position;
-    bool legal1 = cr.Evaluate( eval_penultimate_position );
-    bool normal1 = (eval_penultimate_position == thc::NOT_TERMINAL);
-    display_position( cr, description );
-    mv.TerseIn( &cr, "d8h4" );
-    description = "Position after 2..." + mv.NaturalOut(&cr);
-    cr.PlayMove(mv);
-    display_position( cr, description );
-    thc::TERMINAL eval_final_position;
-    bool legal2 = cr.Evaluate( eval_final_position );
-    bool mate2 = (eval_final_position == thc::TERMINAL_WCHECKMATE);
-    printf( "legal1=%s, normal1=%s, legal2=%s, mate2=%s\n", 
-        legal1?"true":"false",
-        normal1?"true":"false",
-        legal2?"true":"false",
-        mate2?"true":"false");
-    if( legal1 && normal1 && legal2 && mate2 )
-        printf( "As expected, all flags true, so both penultimate and final positions are legal, in the final position White is mated\n" );
-    else
-        printf( "Strange(?!), we expected all flags true, meaning both penultimate and final positions are legal, in the final position White is mated\n" );
-}
+    // Initialize the game
+    thc::ChessRules cr;
+    cr.Forsyth("startpos");
 
+    SerialEngine engine;
+
+    bool game_over = false;
+    thc::TERMINAL terminal;
+
+    while (!game_over) {
+        if (cr.WhiteToPlay()) {
+            if (computer_is_white) {
+                // Computer's turn
+                thc::Move best_move = engine.solve(cr, true);
+                std::cout << "Computer (White) plays: " << best_move.NaturalOut(&cr) << std::endl;
+                cr.PushMove(best_move);
+            } else {
+                // Human's turn
+                print_board(cr);
+                std::string user_input;
+                std::cout << "Your move (White): ";
+                std::getline(std::cin, user_input);
+
+                // Parse and apply the move
+                thc::Move user_move;
+                bool move_ok = user_move.NaturalIn(&cr, user_input.c_str());
+                if (!move_ok) {
+                    std::cout << "Invalid move. Try again." << std::endl;
+                    continue;
+                }
+                std::vector<thc::Move> legal_moves;
+                cr.GenLegalMoveList(legal_moves);
+                if (std::find(legal_moves.begin(), legal_moves.end(), user_move) == legal_moves.end()) {
+                    std::cout << "Illegal move. Try again." << std::endl;
+                    continue;
+                }
+                cr.PushMove(user_move);
+            }
+        } else {
+            if (computer_is_black) {
+                // Computer's turn
+                thc::Move best_move = engine.solve(cr, false);
+                std::cout << "Computer (Black) plays: " << best_move.NaturalOut(&cr) << std::endl;
+                cr.PushMove(best_move);
+            } else {
+                // Human's turn
+                print_board(cr);
+                std::string user_input;
+                std::cout << "Your move (Black): ";
+                std::getline(std::cin, user_input);
+
+                // Parse and apply the move
+                thc::Move user_move;
+                bool move_ok = user_move.NaturalIn(&cr, user_input.c_str());
+                if (!move_ok) {
+                    std::cout << "Invalid move. Try again." << std::endl;
+                    continue;
+                }
+                std::vector<thc::Move> legal_moves;
+                cr.GenLegalMoveList(legal_moves);
+                if (std::find(legal_moves.begin(), legal_moves.end(), user_move) == legal_moves.end()) {
+                    std::cout << "Illegal move. Try again." << std::endl;
+                    continue;
+                }
+                cr.PushMove(user_move);
+            }
+        }
+
+        // Display the board
+        print_board(cr);
+
+        // Check for game termination
+        if (cr.Evaluate(terminal)) {
+            if (terminal == thc::TERMINAL_WCHECKMATE) {
+                std::cout << "White is checkmated. Black wins!" << std::endl;
+                game_over = true;
+            } else if (terminal == thc::TERMINAL_BCHECKMATE) {
+                std::cout << "Black is checkmated. White wins!" << std::endl;
+                game_over = true;
+            } else if (terminal == thc::TERMINAL_WSTALEMATE || terminal == thc::TERMINAL_BSTALEMATE) {
+                std::cout << "Stalemate. It's a draw!" << std::endl;
+                game_over = true;
+            }
+        }
+
+        // Check for draw
+        thc::DRAWTYPE draw_type;
+        if (cr.IsDraw(false, draw_type)) {
+            std::cout << "Draw due to ";
+            switch (draw_type) {
+                case thc::DRAWTYPE_50MOVE:
+                    std::cout << "50-move rule." << std::endl;
+                    break;
+                case thc::DRAWTYPE_INSUFFICIENT:
+                case thc::DRAWTYPE_INSUFFICIENT_AUTO:
+                    std::cout << "insufficient material." << std::endl;
+                    break;
+                case thc::DRAWTYPE_REPITITION:
+                    std::cout << "threefold repetition." << std::endl;
+                    break;
+                default:
+                    std::cout << "unknown reason." << std::endl;
+                    break;
+            }
+            game_over = true;
+        }
+    }
+
+    return 0;
+}
