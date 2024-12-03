@@ -1,13 +1,75 @@
+/*
+ *  serial-engine
+ *
+ *  Usually, chess engines implement the following algorithms to find moves for each of the different phases of the game.
+ * 
+ *  Opening: Book (Famous openings are extensively studied and search space is not extensive so we can use a database.) 
+ *  Midgame: Search
+ *  Endgame: Search + Syzygy (When 8 pieces are left, chess is solved. Just find the correct moves from a syzygy database.)
+ * 
+ *  So far I only implemented part of Search. The other ones are not related to parallelism.
+ * 
+ *  Searching is done via alpha-beta pruning. We completely search each layer. We search using iterative deepening 
+ *  (DFS version of BFS). For up to 20 seconds total, compute game tree up to depth i and compute the node 
+ *  (call static_eval). Then propagate back up. If the 20 seconds are not up, we compute the tree to depth i + 1, and
+ *  so on.
+ * 
+ * 
+ *  Book (Unimplemented)
+ * 
+ *  Search: 
+ * 
+ *  Iterative deepening (Implemented)
+ * 
+ *             Timestep 1                              Timestep 2                             Timestep 3 (20 seconds up!)
+ *              Depth = 1                               Depth = 2                                     Depth = 3                            
+ *             
+ *            compute node A                         compute node A                                  compute node A                                  
+ *                                             /        |       |     \                           /                  
+ *                                          compute node B ... compute node E                   compute node B  X cancel 
+ * 
+ * 
+ *                                                     ^
+ *                                                  Use results for this one
+ * 
+ * 
+ *  Static evaluation + Alpha-beta pruning (Implemented)
+ * 
+ *  When we reach the bottom of the search tree, we will put the board into a static evaluation function. We will use 
+ *  minimax to determine what position is best for the next choice. Alpha-beta pruning will be used. 
+ * 
+ *                          max                     compute node A                                  
+ *                           ^                 /        |       |     \                                           
+ *                          min              compute node B ... compute node E
+ *  To do this we use piece square tables or heat maps as well as add bonuses for things like pawn structure, 
+ *  king safety, etc. NNUE (unimplemented) is also used to adjust the scoring. 
+ * 
+ *  Move reordering (Implemented)
+ *  If we search branches with "important" moves first, this will greatly help with alpha-beta pruning. 
+ *
+ * 
+ *  Quiescent Search (Unimplemented)
+ * 
+ *  At the end of each move we should continue searching until captures are no longer possible.
+ * 
+ *  Transposition Tables (Unimplemented)
+ *  
+ *  To help speed up search, different transpositions that have already been scored should be stored in a hash map. This prevents
+ *  needing to search the same position twice (DP).
+ * 
+ *  Syzygy (Unimplemented) 
+ */
+
+
 #include "serial-engine.h"
 #include <algorithm>
 #include <map>
-#include <cctype>   // For isupper and tolower
-#include <cmath>    // For abs
+#include <cctype>   
+#include <cmath>    
 #include <iostream>
 
-// Piece-square tables for evaluation
+// Piece-square tables for evaluation (a.k.a. heat maps)
 const int pawn_table[64] = {
-    // Pawn
      0,  0,  0,  0,  0,  0,  0,  0,
     50, 50, 50, 50, 50, 50, 50, 50,
     10, 10, 20, 30, 30, 20, 10, 10,
@@ -19,7 +81,6 @@ const int pawn_table[64] = {
 };
 
 const int knight_table[64] = {
-    // Knight
     -50,-40,-30,-30,-30,-30,-40,-50,
     -40,-20,  0,  0,  0,  0,-20,-40,
     -30,  0, 10, 15, 15, 10,  0,-30,
@@ -31,7 +92,6 @@ const int knight_table[64] = {
 };
 
 const int bishop_table[64] = {
-    // Bishop
     -20,-10,-10,-10,-10,-10,-10,-20,
     -10,  0,  0,  0,  0,  0,  0,-10,
     -10,  0,  5, 10, 10,  5,  0,-10,
@@ -43,7 +103,6 @@ const int bishop_table[64] = {
 };
 
 const int rook_table[64] = {
-    // Rook
      0,  0,  0,  0,  0,  0,  0,  0,
      5, 10, 10, 10, 10, 10, 10,  5,
     -5,  0,  0,  0,  0,  0,  0, -5,
@@ -55,7 +114,6 @@ const int rook_table[64] = {
 };
 
 const int queen_table[64] = {
-    // Queen
     -20,-10,-10, -5, -5,-10,-10,-20,
     -10,  0,  0,  0,  0,  0,  0,-10,
     -10,  0,  5,  5,  5,  5,  0,-10,
@@ -67,7 +125,6 @@ const int queen_table[64] = {
 };
 
 const int king_table[64] = {
-    // King
     -30,-40,-40,-50,-50,-40,-40,-30,
     -30,-40,-40,-50,-50,-40,-40,-30,
     -30,-40,-40,-50,-50,-40,-40,-30,
@@ -78,7 +135,9 @@ const int king_table[64] = {
      20, 30, 10,  0,  0, 10, 30, 20
 };
 
-// Helper function for move scoring
+/* Helper function for move scoring. Capturing larger piece is prioritized first.
+ */
+
 float SerialEngine::score_move(const thc::Move& move, thc::ChessRules& cr) {
     float score = 0.0f;
 
@@ -97,7 +156,7 @@ float SerialEngine::score_move(const thc::Move& move, thc::ChessRules& cr) {
 
     // Check for promotions
     if (move.special >= thc::SPECIAL_PROMOTION_QUEEN && move.special <= thc::SPECIAL_PROMOTION_KNIGHT) {
-        score += 9.0f; // Adjust as needed for different promotions
+        score += 9.0f; 
     }
 
     // Positional gain
@@ -130,6 +189,8 @@ float SerialEngine::score_move(const thc::Move& move, thc::ChessRules& cr) {
 
     return score;
 }
+
+// Add a mobility bonus for the pieces (not sure if this helps).
 int SerialEngine::evaluate_mobility(thc::ChessRules& cr, bool is_white, const std::vector<int>& piece_indices) {
     int mobility_score = 0;
     thc::ChessRules cr_copy = cr;
@@ -168,9 +229,9 @@ int SerialEngine::evaluate_pawn_structure(const std::vector<int>& pawn_files, bo
 
     for (int i = 0; i < 8; ++i) {
         if (file_counts[i] > 0) {
-            // Check for doubled pawns
+            // Check for doubled pawns; we want a penalty for doubled pawns
             if (file_counts[i] > 1) {
-                score -= 10 * (file_counts[i] - 1); // Penalty for doubled pawns
+                score -= 10 * (file_counts[i] - 1);
             }
             if (!in_island) {
                 in_island = true;
@@ -191,7 +252,7 @@ int SerialEngine::evaluate_pawn_structure(const std::vector<int>& pawn_files, bo
             if (i > 0 && file_counts[i - 1] > 0) has_adjacent_pawns = true;
             if (i < 7 && file_counts[i + 1] > 0) has_adjacent_pawns = true;
             if (!has_adjacent_pawns) {
-                score -= 15; // Penalty for isolated pawns
+                score -= 15; // Penalty for isolated pawns, might have to adjust
             }
         }
     }
@@ -205,7 +266,7 @@ int SerialEngine::evaluate_king_safety(thc::ChessRules& cr, int king_index, bool
     if (king_index == -1) return safety_score; // King not found
 
     if (endgame) {
-        // In the endgame, the king can be more active
+        // In the endgame, the king can be more active (try to trap other king but somewhat buggy rn)
         return safety_score; // No penalties in endgame
     }
 
@@ -238,8 +299,6 @@ int SerialEngine::evaluate_king_safety(thc::ChessRules& cr, int king_index, bool
         safety_score -= 20; // King is exposed
     }
 
-    // Additional king safety factors can be added here...
-
     return safety_score;
 }
 
@@ -255,11 +314,16 @@ int SerialEngine::evaluate_king_activity(int own_king_index, int opponent_king_i
     float distance_to_center = std::abs(rank - center_rank) + std::abs(file - center_file);
     activity_score -= static_cast<int>(distance_to_center * 5); // Encourage centralization
 
-    // Proximity to opponent's king
+    // Proximity to opponent's king (endgame)
     int opponent_rank = opponent_king_index / 8;
     int opponent_file = opponent_king_index % 8;
     int king_distance = std::abs(rank - opponent_rank) + std::abs(file - opponent_file);
-    activity_score -= king_distance * 2; // Encourage approaching opponent's king
+    if (is_white) {
+        activity_score -= king_distance * 2; // Encourage approaching opponent's king
+    } 
+    else {
+        activity_score += king_distance * 2;
+    }
 
     // Adjust king safety considerations
     // The king is less likely to be attacked in endgame
@@ -411,8 +475,6 @@ SerialEngine::Score SerialEngine::static_eval(thc::ChessRules& cr) {
     total_score += evaluate_king_safety(cr, white_king_index, true, endgame);
     total_score -= evaluate_king_safety(cr, black_king_index, false, endgame);
 
-    // Additional evaluations can be added here...
-
     // After calculating total material
     
     // Evaluate king activity in endgame
@@ -425,6 +487,8 @@ SerialEngine::Score SerialEngine::static_eval(thc::ChessRules& cr) {
     return total_score;
 }
 
+int debug_node_count = 0;
+
 thc::Move SerialEngine::solve(thc::ChessRules& cr, bool is_white_player) {
     this->time_limit_reached = false;
     this->start_time = std::chrono::steady_clock::now();
@@ -433,8 +497,9 @@ thc::Move SerialEngine::solve(thc::ChessRules& cr, bool is_white_player) {
     bool move_found = false;
 
     for (int current_depth = 1; current_depth <= MAX_DEPTH; ++current_depth) {
+        debug_node_count = 0;
         if (time_limit_reached) {
-            break; // Time limit reached, break out of the loop
+            break; 
         }
 
         thc::Move current_best_move;
@@ -443,23 +508,27 @@ thc::Move SerialEngine::solve(thc::ChessRules& cr, bool is_white_player) {
             is_white_player,
             current_best_move,
             0,
-            current_depth, // Pass max_depth here
+            current_depth, 
             -INF_SCORE,
             INF_SCORE
         );
 
         if (time_limit_reached) {
-            break; // Time limit reached during search
+            break; 
         }
 
-        // Update the best move found so far
         best_move_so_far = current_best_move;
         move_found = true;
 
-        // Debug output (optional)
+        // Debug output (record this data as metric for engine performance)
         auto current_time = std::chrono::steady_clock::now();
         std::chrono::duration<double> elapsed_seconds = current_time - start_time;
-        std::cout << "Depth: " << current_depth << ", Score: " << (current_score / 100.0f) << ", Time: " << elapsed_seconds.count() << "s" << std::endl;
+        std::cout << "Depth: " <<  current_depth 
+        << ", Score: " << (current_score / 100.0f) 
+        << ", Time: " << elapsed_seconds.count() << "s" 
+        << ", Nodes Evaluated = " << debug_node_count 
+        << ", knps: " << (debug_node_count/1000.0) / elapsed_seconds.count() 
+        << std::endl;
     }
 
     if (move_found) {
@@ -491,8 +560,8 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
         return 0.0f;
     }
 
-    // Check time at certain intervals to minimize performance impact
-    if (depth % 5 == 0) { // Adjust the modulus value as needed
+    // Check time at certain intervals to minimize performance impact (we do mod 5)
+    if (depth % 5 == 0) { 
         auto current_time = std::chrono::steady_clock::now();
         std::chrono::duration<double> elapsed_seconds = current_time - start_time;
         if (elapsed_seconds.count() >= TIME_LIMIT_SECONDS) {
@@ -510,15 +579,19 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
     thc::TERMINAL terminal;
     if (cr.Evaluate(terminal)) {
         if (terminal == thc::TERMINAL_WCHECKMATE) {
+            debug_node_count++;
             return -INF_SCORE + depth; // White is checkmated
         } else if (terminal == thc::TERMINAL_BCHECKMATE) {
+            debug_node_count++;
             return INF_SCORE - depth; // Black is checkmated
         } else if (terminal == thc::TERMINAL_WSTALEMATE || terminal == thc::TERMINAL_BSTALEMATE) {
+            debug_node_count++;
             return 0.0f; // Stalemate is a draw
         }
     }
 
     if (depth == max_depth) {
+        debug_node_count++;
         return static_eval(cr);
     }
 
@@ -526,7 +599,7 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
     cr.GenLegalMoveList(legal_moves);
 
     if (legal_moves.empty()) {
-        // No legal moves: checkmate or stalemate
+        // No legal moves: checkmate or stalemate? Shouldn't go here.
         return 0.0f;
     }
 
@@ -579,6 +652,7 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
                 alpha_score = std::max(alpha_score, best_score);
             }
             if (beta_score <= alpha_score) {
+                
                 break; // Beta cutoff
             }
         } else {
