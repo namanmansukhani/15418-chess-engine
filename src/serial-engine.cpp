@@ -48,7 +48,7 @@
  *  If we search branches with "important" moves first, this will greatly help with alpha-beta pruning. 
  *
  * 
- *  Quiescent Search (Unimplemented)
+ *  Quiescence Search (Unimplemented)
  * 
  *  At the end of each move we should continue searching until captures are no longer possible.
  * 
