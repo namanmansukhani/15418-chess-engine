@@ -1,10 +1,11 @@
-#ifndef SERIAL_ENGINE_H
-#define SERIAL_ENGINE_H
+#ifndef OMP_ENGINE_H
+#define OMP_ENGINE_H
 
-#include "thc.h"      // Include the THC library header
+#include "thc.h"      
 #include <chrono>
 #include <atomic>
-#include <vector>     // For std::vector
+#include <vector>     
+// #include <omp.h>
 
 class SerialEngine {
 public:
@@ -12,9 +13,9 @@ public:
 
     static constexpr Score INF_SCORE = 1000000.0f;
     static constexpr int MAX_DEPTH = 50;
-    static constexpr int TIME_LIMIT_SECONDS = 20; // Time limit in seconds
+    static constexpr int TIME_LIMIT_SECONDS = 6; 
 
-    // Solve function to find the best move
+    
     thc::Move solve(thc::ChessRules& cr, bool is_white_player);
 
 private:
@@ -57,4 +58,4 @@ private:
     std::atomic<bool> time_limit_reached;
 };
 
-#endif // SERIAL_ENGINE_H
+#endif // OMP_ENGINE_H
