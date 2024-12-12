@@ -10,7 +10,7 @@ void print_board(thc::ChessRules& cr) {
 }
 
 int main(int argc, char* argv[]) {
-    omp_set_num_threads(1);
+    omp_set_num_threads(4);
 
     bool computer_is_white = false;
     bool computer_is_black = false;

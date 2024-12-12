@@ -68,6 +68,8 @@
 #include <cmath>    
 #include <iostream>
 
+#include <atomic>
+
 #define AB_BREAK 1
 #define TIME_LIMIT_EXCEEDED 2
 
@@ -490,7 +492,9 @@ SerialEngine::Score SerialEngine::static_eval(thc::ChessRules& cr) {
     return total_score;
 }
 
-int debug_node_count = 0;
+// int debug_node_count = 0;
+
+std::atomic<int> debug_node_count(0);
 
 thc::Move SerialEngine::solve(thc::ChessRules& cr, bool is_white_player) {
     this->time_limit_reached = false;
@@ -622,18 +626,21 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
 
     int done_flag = 0;
 
-    // #pragma omp parallel for
+    #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < scored_moves.size(); i++) {
         if (done_flag) continue;
         auto& move = scored_moves[i].second; // Ensure 'move' is non-const
 
         // Push the move
-        cr.PushMove(move);
+        // cr.PushMove(move);
+
+        thc::ChessRules cr_copy = cr;
+        cr_copy.PushMove(move);
 
         // Recurse
         thc::Move temp_best_move;
         Score current_score = solve_serial_engine(
-            cr,
+            cr_copy,
             !is_white_player,
             temp_best_move,
             depth + 1,
@@ -643,7 +650,7 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
         );
 
         // Pop the move
-        cr.PopMove(move);
+        // cr.PopMove(move);
 
         // Check if time limit was reached during recursion
         if (time_limit_reached) {
@@ -652,6 +659,7 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
             // return 0.0f;
         }
 
+        #pragma omp critical
         if (is_white_player) {
             if (current_score > best_score) {
                 best_score = current_score;
@@ -662,7 +670,7 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
             }
             if (beta_score <= alpha_score) {
                 done_flag = AB_BREAK;
-                continue;
+                // continue;
                 // break; // Beta cutoff
             }
         } else {
@@ -675,7 +683,7 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
             }
             if (beta_score <= alpha_score) {
                 done_flag = AB_BREAK;
-                continue;
+                // continue;
                 // break; // Alpha cutoff
             }
         }
