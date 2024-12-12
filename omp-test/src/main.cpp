@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
         computer_is_black = true;
     }
 
-    std::cout<<"USING "<<arg<<" THREADS"<<std::endl;
+    std::cout<<"USING "<<omp_num_threads<<" THREADS"<<std::endl;
     omp_set_num_threads(omp_num_threads);
 
     // Initialize the game
