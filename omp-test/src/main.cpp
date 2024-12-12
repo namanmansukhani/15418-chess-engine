@@ -10,13 +10,13 @@ void print_board(thc::ChessRules& cr) {
 }
 
 int main(int argc, char* argv[]) {
-    omp_set_num_threads(4);
+    int omp_num_threads = 1;
 
     bool computer_is_white = false;
     bool computer_is_black = false;
 
     // Parse command-line arguments
-    if (argc > 1) {
+    if (argc > 2) {
         std::string arg = argv[1];
         if (arg == "--white") {
             computer_is_white = true;
@@ -26,10 +26,18 @@ int main(int argc, char* argv[]) {
             std::cout << "Usage: " << argv[0] << " [--white | --black]" << std::endl;
             return 1;
         }
-    } else {
+    }
+    else if (argc == 2) {
+        string::arg = argv[1];
+        omp_num_threads = std::stoi(arg);
+    }
+    else {
         // Default to computer playing black
         computer_is_black = true;
     }
+
+    std::cout<<"USING "<<arg<<" THREADS"<<std::endl;
+    omp_set_num_threads(omp_num_threads);
 
     // Initialize the game
     thc::ChessRules cr;
