@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
         }
     }
     else if (argc == 2) {
-        string::arg = argv[1];
+        std::string arg = argv[1];
         omp_num_threads = std::stoi(arg);
     }
     else {
