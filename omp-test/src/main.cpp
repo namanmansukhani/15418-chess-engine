@@ -28,6 +28,7 @@ int main(int argc, char* argv[]) {
         }
     }
     else if (argc == 2) {
+        computer_is_black = true;
         std::string arg = argv[1];
         omp_num_threads = std::stoi(arg);
     }
