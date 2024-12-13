@@ -8,12 +8,21 @@
 
 #include "mpi.h"
 
+// void print(){std::cout<<std::endl;}
+// void print(bool endline) {if(endline)std::cout<<std::endl;}
+// template<typename T, typename ...TAIL>
+// void print(const T &t, TAIL... tail)
+// {
+//     std::cout<<t<<' ';
+//     print(tail...);
+// }
+
 class SerialEngine {
 public:
     using Score = float;
 
     static constexpr Score INF_SCORE = 1000000.0f;
-    static constexpr int MAX_DEPTH = 50;
+    static constexpr int MAX_DEPTH = 4;
     static constexpr int TIME_LIMIT_SECONDS = 6; // Time limit in seconds
 
     // Solve function to find the best move
@@ -21,14 +30,12 @@ public:
 
 private:
     // Recursive search function with alpha-beta pruning and iterative deepening
-    Score solve_serial_engine(
+    std::pair<Score, thc::Move> solve_serial_engine(
         thc::ChessRules& cr,
         bool is_white_player,
-        thc::Move& best_move,
         int depth,
         int max_depth,
-        Score alpha_score,
-        Score beta_score
+        MPI_Comm mpi_comm
     );
 
     // Static evaluation function

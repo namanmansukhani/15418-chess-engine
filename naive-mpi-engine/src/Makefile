@@ -1,7 +1,7 @@
 # Makefile for Chess Engine Project
 
 # Compiler and flags
-CXX = g++
+CXX = mpic++
 CXXFLAGS = -Wall -O3 -std=c++17
 
 # Target executable
@@ -27,5 +27,3 @@ $(TARGET): $(OBJS)
 # Clean up build files
 clean:
 	rm -f $(TARGET) $(OBJS)
-
-
