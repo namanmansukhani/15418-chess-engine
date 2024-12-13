@@ -6,14 +6,14 @@
 #include "serial-engine.h"
 
 
-void print(){std::cout<<std::endl;}
-void print(bool endline) {if(endline)std::cout<<std::endl;}
-template<typename T, typename ...TAIL>
-void print(const T &t, TAIL... tail)
-{
-    std::cout<<t<<' ';
-    print(tail...);
-}
+// void print(){std::cout<<std::endl;}
+// void print(bool endline) {if(endline)std::cout<<std::endl;}
+// template<typename T, typename ...TAIL>
+// void print(const T &t, TAIL... tail)
+// {
+//     std::cout<<t<<' ';
+//     print(tail...);
+// }
 
 void print_board(thc::ChessRules& cr) {
     std::cout << cr.ToDebugStr() << std::endl;
@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
         if ((white_turn and computer_is_white) or (!white_turn and computer_is_black)) {
             // Computer's turn
             thc::Move best_move = engine.solve(cr, true);
-            std::cout << "Computer ("<<move_name<<") plays: " << best_move.NaturalOut(&cr) << std::endl;
+            if (mpi_id == 0) std::cout << "Computer ("<<move_name<<") plays: " << best_move.NaturalOut(&cr) << std::endl;
             cr.PushMove(best_move);
 
             // std::cout<<"LOL"<<std::endl;
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
 
                 print_board(cr);
                 std::string user_input;
-                std::cout << "Your move ("<< move_name<< "): "<<std::endl;
+                std::cout << "Your move ("<< move_name<< "): "<<std::flush;
                 std::getline(std::cin, user_input);
 
                 // Parse and apply the move
@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
             else {
                 MPI_Bcast(&user_move, 1, MPI_INTEGER, 0, MPI_COMM_WORLD);
 
-                std::cout<<"RECEIVED "<<user_move.NaturalOut(&cr)<<std::endl;
+                // std::cout<<"RECEIVED "<<user_move.NaturalOut(&cr)<<std::endl;
             }
             
             cr.PushMove(user_move);

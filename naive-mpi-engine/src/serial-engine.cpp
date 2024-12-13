@@ -71,6 +71,15 @@
 #include <utility>
 #include <cassert>
 
+void print(){std::cout<<std::endl;}
+void print(bool endline) {if(endline)std::cout<<std::endl;}
+template<typename T, typename ...TAIL>
+void print(const T &t, TAIL... tail)
+{
+    std::cout<<t<<' ';
+    print(tail...);
+}
+
 // Piece-square tables for evaluation (a.k.a. heat maps)
 const int pawn_table[64] = {
      0,  0,  0,  0,  0,  0,  0,  0,
@@ -553,10 +562,6 @@ thc::Move SerialEngine::solve(thc::ChessRules& cr, bool is_white_player) {
     }
 }
 
-// SerialEngine::Score temp_func(thc::ChessRules& cr, int depth) {
-    
-// }
-
 std::pair<SerialEngine::Score, thc::Move>
 SerialEngine::solve_serial_engine(
     thc::ChessRules& cr,
@@ -572,7 +577,6 @@ SerialEngine::solve_serial_engine(
 
     {
         thc::Move null_move;
-        null_move.NaturalIn(&cr, "b6");
 
         thc::DRAWTYPE draw_reason;
         if (cr.IsDraw(false, draw_reason)) {
@@ -599,20 +603,10 @@ SerialEngine::solve_serial_engine(
         }
     }
 
-    // if (nproc == 1) {
-    //     // return something
-    // }
-
     std::vector<thc::Move> legal_moves;
     cr.GenLegalMoveList(legal_moves);
 
-    // if (legal_moves.size() == 0) return 0.0f;
-    // TODO
-    // assert(legal_moves.size() > 0);
-
     std::pair<SerialEngine::Score, thc::Move> ans_pair;
-    
-    // std::cout<<"DBG "<<pid<<", "<<depth<<": "<<nproc<<" "<<legal_moves.size()<<std::endl;
 
     if (nproc <= legal_moves.size()) {
         MPI_Comm my_comm;
@@ -661,13 +655,11 @@ SerialEngine::solve_serial_engine(
     std::pair<SerialEngine::Score, thc::Move> best_ans;
 
     if (is_white_player) {
-        MPI_Allreduce(&ans_pair, &best_ans, 1, MPI_DOUBLE_INT, MPI_MINLOC, comm);
+        MPI_Allreduce(&ans_pair, &best_ans, 1, MPI_FLOAT_INT, MPI_MINLOC, comm);
     }
     else {
-        MPI_Allreduce(&ans_pair, &best_ans, 1, MPI_DOUBLE_INT, MPI_MAXLOC, comm);
+        MPI_Allreduce(&ans_pair, &best_ans, 1, MPI_FLOAT_INT, MPI_MAXLOC, comm);
     }
-
-    // std::cout<<"DBG "<<best_ans.first<<", "<<best_ans.second.NaturalOut(&cr)<<std::endl;
 
     return best_ans;
 }

@@ -36,3 +36,5 @@ build
 *.swn
 *.swp
 *.swo
+
+chess-engine
