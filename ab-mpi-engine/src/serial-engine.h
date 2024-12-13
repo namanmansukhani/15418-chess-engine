@@ -22,8 +22,8 @@ public:
     using Score = float;
 
     static constexpr Score INF_SCORE = 1000000.0f;
-    static constexpr int MAX_DEPTH = 5;
-    static constexpr int TIME_LIMIT_SECONDS = 6; // Time limit in seconds
+    static constexpr int MAX_DEPTH = 10;
+    static constexpr int TIME_LIMIT_SECONDS = 10; // Time limit in seconds
 
     // Solve function to find the best move
     thc::Move solve(thc::ChessRules& cr, bool is_white_player);
@@ -35,6 +35,8 @@ private:
         bool is_white_player,
         int depth,
         int max_depth,
+        Score alpha_score,
+        Score beta_score,
         MPI_Comm mpi_comm
     );
 
