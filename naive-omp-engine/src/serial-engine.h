@@ -14,10 +14,20 @@ public:
 
     static constexpr Score INF_SCORE = 1000000.0f;
     static constexpr int MAX_DEPTH = 50;
-    static constexpr int TIME_LIMIT_SECONDS = 6; // Time limit in seconds
+    static constexpr int TIME_LIMIT_SECONDS = 100; // Time limit in seconds
 
     // Solve function to find the best move
     thc::Move solve(thc::ChessRules& cr, bool is_white_player);
+
+    omp_lock_t depth_wise_locks[MAX_DEPTH];
+
+    SerialEngine() {
+        for (int i=0;i<MAX_DEPTH;i++) omp_init_lock(&depth_wise_locks[i]);
+    }
+
+    ~SerialEngine() {
+        for (int i=0;i<MAX_DEPTH;i++) omp_destroy_lock(&depth_wise_locks[i]);
+    }
 
 private:
     // Recursive search function with alpha-beta pruning and iterative deepening

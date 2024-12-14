@@ -659,7 +659,8 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
             // return 0.0f;
         }
 
-        #pragma omp critical
+        // #pragma omp critical
+        omp_set_lock(&depth_wise_locks[depth]);
         if (is_white_player) {
             if (current_score > best_score) {
                 best_score = current_score;
@@ -687,6 +688,7 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
                 // break; // Alpha cutoff
             }
         }
+        omp_unset_lock(&depth_wise_locks[depth]);
     }
 
     if (done_flag == TIME_LIMIT_EXCEEDED) return 0.0f;

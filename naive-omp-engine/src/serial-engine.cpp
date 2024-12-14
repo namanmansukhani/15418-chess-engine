@@ -614,7 +614,7 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
 
     int done_flag = 0;
 
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for schedule(dynamic)
     for (size_t i = 0; i < legal_moves.size(); i++) {
         if (done_flag) continue;
         auto& move = legal_moves[i]; // Ensure 'move' is non-const
@@ -647,19 +647,14 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
             // return 0.0f;
         }
 
-        #pragma omp critical
+        // #pragma omp critical
+        omp_set_lock(&depth_wise_locks[depth]);
         if (is_white_player) {
             if (current_score > best_score) {
                 best_score = current_score;
                 if (depth == 0) {
                     best_move = move;
                 }
-                alpha_score = std::max(alpha_score, best_score);
-            }
-            if (beta_score <= alpha_score) {
-                // done_flag = AB_BREAK;
-                // continue;
-                // break; // Beta cutoff
             }
         } else {
             if (current_score < best_score) {
@@ -667,14 +662,9 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
                 if (depth == 0) {
                     best_move = move;
                 }
-                beta_score = std::min(beta_score, best_score);
-            }
-            if (beta_score <= alpha_score) {
-                // done_flag = AB_BREAK;
-                // continue;
-                // break; // Alpha cutoff
             }
         }
+        omp_unset_lock(&depth_wise_locks[depth]);
     }
 
     if (done_flag == TIME_LIMIT_EXCEEDED) return 0.0f;
