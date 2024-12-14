@@ -614,7 +614,12 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
 
     int done_flag = 0;
 
-    #pragma omp parallel for schedule(dynamic)
+    omp_lock_t omp_lock;
+
+    bool use_parallelism = legal_moves.size() >= 10;
+    if (use_parallelism) omp_init_lock(&omp_lock);
+
+    #pragma omp parallel for schedule(dynamic) if (use_parallelism)
     for (size_t i = 0; i < legal_moves.size(); i++) {
         if (done_flag) continue;
         auto& move = legal_moves[i]; // Ensure 'move' is non-const
@@ -648,7 +653,8 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
         }
 
         // #pragma omp critical
-        omp_set_lock(&depth_wise_locks[depth]);
+        if (use_parallelism) omp_set_lock(&omp_lock);
+
         if (is_white_player) {
             if (current_score > best_score) {
                 best_score = current_score;
@@ -664,7 +670,8 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
                 }
             }
         }
-        omp_unset_lock(&depth_wise_locks[depth]);
+        
+        if (use_parallelism) omp_unset_lock(&omp_lock);
     }
 
     if (done_flag == TIME_LIMIT_EXCEEDED) return 0.0f;

@@ -19,16 +19,6 @@ public:
     // Solve function to find the best move
     thc::Move solve(thc::ChessRules& cr, bool is_white_player);
 
-    omp_lock_t depth_wise_locks[MAX_DEPTH];
-
-    SerialEngine() {
-        for (int i=0;i<MAX_DEPTH;i++) omp_init_lock(&depth_wise_locks[i]);
-    }
-
-    ~SerialEngine() {
-        for (int i=0;i<MAX_DEPTH;i++) omp_destroy_lock(&depth_wise_locks[i]);
-    }
-
 private:
     // Recursive search function with alpha-beta pruning and iterative deepening
     Score solve_serial_engine(
