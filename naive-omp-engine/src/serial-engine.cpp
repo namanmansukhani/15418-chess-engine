@@ -616,7 +616,7 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
 
     omp_lock_t omp_lock;
 
-    bool use_parallelism = legal_moves.size() >= 10;
+    bool use_parallelism = legal_moves.size() >= 5;
     if (use_parallelism) omp_init_lock(&omp_lock);
 
     #pragma omp parallel for schedule(dynamic) if (use_parallelism)
@@ -673,6 +673,8 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
         
         if (use_parallelism) omp_unset_lock(&omp_lock);
     }
+
+    if (use_parallelism) omp_destroy_lock(&omp_lock);
 
     if (done_flag == TIME_LIMIT_EXCEEDED) return 0.0f;
     return best_score;
