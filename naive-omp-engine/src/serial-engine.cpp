@@ -140,6 +140,12 @@ const int king_table[64] = {
      20, 30, 10,  0,  0, 10, 30, 20
 };
 
+struct MinScoreData {
+float score = 1000.0f;
+int index = -1;
+};
+#pragma omp declare reduction(minimum : MinScoreData : omp_out = (omp_in.score < omp_out.score ? omp_in : omp_out)) initializer(omp_priv = MinScoreData())
+
 /* Helper function for move scoring. Capturing larger piece is prioritized first.
  */
 
@@ -614,12 +620,12 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
 
     int done_flag = 0;
 
-    omp_lock_t omp_lock;
+    // #pragma omp parallel for schedule(dynamic)
+    // #pragma 
 
-    bool use_parallelism = legal_moves.size() >= 5;
-    if (use_parallelism) omp_init_lock(&omp_lock);
+    MinScoreData result;
 
-    #pragma omp parallel for schedule(dynamic) if (use_parallelism)
+    #pragma omp parallel for reduction(minimum:result)
     for (size_t i = 0; i < legal_moves.size(); i++) {
         if (done_flag) continue;
         auto& move = legal_moves[i]; // Ensure 'move' is non-const
@@ -652,30 +658,37 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
             // return 0.0f;
         }
 
-        // #pragma omp critical
-        if (use_parallelism) omp_set_lock(&omp_lock);
+        if (is_white_player) current_score = -current_score;
 
-        if (is_white_player) {
-            if (current_score > best_score) {
-                best_score = current_score;
-                if (depth == 0) {
-                    best_move = move;
-                }
-            }
-        } else {
-            if (current_score < best_score) {
-                best_score = current_score;
-                if (depth == 0) {
-                    best_move = move;
-                }
-            }
-        }
+        // #pragma omp critical
         
-        if (use_parallelism) omp_unset_lock(&omp_lock);
+        if (current_score < result.score) {
+            result.score = current_score;
+            result.index = i;
+        }
+        // if (is_white_player) {
+        //     if (current_score > best_score) {
+        //         best_score = current_score;
+        //         if (depth == 0) {
+        //             best_move = move;
+        //         }
+        //     }
+        // } else {
+        //     if (current_score < best_score) {
+        //         best_score = current_score;
+        //         if (depth == 0) {
+        //             best_move = move;
+        //         }
+        //     }
+        // }
+        
     }
 
-    if (use_parallelism) omp_destroy_lock(&omp_lock);
+    if (is_white_player) result.score = -result.score;
+
+    if (depth == 0) best_move = legal_moves[result.index];
 
     if (done_flag == TIME_LIMIT_EXCEEDED) return 0.0f;
-    return best_score;
+    return result.score;
+    // return best_score;
 }
