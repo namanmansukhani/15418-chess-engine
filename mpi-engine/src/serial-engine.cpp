@@ -68,6 +68,18 @@
 #include <cmath>    
 #include <iostream>
 
+#include <utility>
+#include <cassert>
+
+void print(){std::cout<<std::endl;}
+void print(bool endline) {if(endline)std::cout<<std::endl;}
+template<typename T, typename ...TAIL>
+void print(const T &t, TAIL... tail)
+{
+    std::cout<<t<<' ';
+    print(tail...);
+}
+
 // Piece-square tables for evaluation (a.k.a. heat maps)
 const int pawn_table[64] = {
      0,  0,  0,  0,  0,  0,  0,  0,
@@ -489,62 +501,114 @@ SerialEngine::Score SerialEngine::static_eval(thc::ChessRules& cr) {
 
 int debug_node_count = 0;
 
-SerialEngine::Score SerialEngine::solve_serial_engine(
+thc::Move SerialEngine::solve(thc::ChessRules& cr, bool is_white_player) {
+    this->time_limit_reached = false;
+
+    int pid;
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &pid);
+    this->start_time = std::chrono::steady_clock::now();
+
+    thc::Move best_move_so_far;
+    bool move_found = false;
+
+    for (int current_depth = 1; current_depth <= MAX_DEPTH; ++current_depth) {
+        debug_node_count = 0;
+        if (time_limit_reached) {
+            break; 
+        }
+
+        // thc::Move current_best_move;
+        auto [current_score, current_best_move] = solve_serial_engine(
+            cr,
+            is_white_player,
+            0,
+            current_depth,
+            -INF_SCORE,
+            INF_SCORE, 
+            MPI_COMM_WORLD
+        );
+
+        if (time_limit_reached) {
+            break; 
+        }
+
+        best_move_so_far = current_best_move;
+        move_found = true;
+
+        if (pid != 0) continue;
+
+        // Debug output (record this data as metric for engine performance)
+        auto current_time = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed_seconds = current_time - start_time;
+        std::cout << "Depth: " <<  current_depth 
+        << ", Score: " << (current_score / 100.0f) 
+        << ", Time: " << elapsed_seconds.count() << "s" 
+        << ", Nodes Evaluated = " << debug_node_count 
+        << ", knps: " << (debug_node_count/1000.0) / elapsed_seconds.count() 
+        << std::endl;
+    }
+
+    if (move_found) {
+        return best_move_so_far;
+    } else {
+        // If no move was found (unlikely), generate a random legal move
+        std::vector<thc::Move> legal_moves;
+        cr.GenLegalMoveList(legal_moves);
+        if (!legal_moves.empty()) {
+            return legal_moves[0];
+        } else {
+            // No legal moves, return a default move
+            return thc::Move();
+        }
+    }
+}
+
+std::pair<SerialEngine::Score, thc::Move>
+SerialEngine::solve_serial_engine(
     thc::ChessRules& cr,
     bool is_white_player,
-    thc::Move& best_move,
     int depth,
     int max_depth,
     Score alpha_score,
-    Score beta_score
+    Score beta_score,
+    MPI_Comm comm
 ) {
-    // Check if time limit has been reached
-    if (time_limit_reached) {
-        return 0.0f;
-    }
+    int pid, nproc;
 
-    // Check time at certain intervals to minimize performance impact (we do mod 5)
-    if (depth % 5 == 0) { 
-        auto current_time = std::chrono::steady_clock::now();
-        std::chrono::duration<double> elapsed_seconds = current_time - start_time;
-        if (elapsed_seconds.count() >= TIME_LIMIT_SECONDS) {
-            time_limit_reached = true;
-            return 0.0f;
+    MPI_Comm_rank(comm, &pid);
+    MPI_Comm_size(comm, &nproc);
+
+    {
+        thc::Move null_move;
+
+        thc::DRAWTYPE draw_reason;
+        if (cr.IsDraw(false, draw_reason)) {
+            return {0.0f, null_move};
         }
-    }
 
-    thc::DRAWTYPE draw_reason;
-    if (cr.IsDraw(false, draw_reason)) {
-        return 0.0f;
-    }
-
-    // Check for checkmate or stalemate
-    thc::TERMINAL terminal;
-    if (cr.Evaluate(terminal)) {
-        if (terminal == thc::TERMINAL_WCHECKMATE) {
-            debug_node_count++;
-            return -INF_SCORE + depth; // White is checkmated
-        } else if (terminal == thc::TERMINAL_BCHECKMATE) {
-            debug_node_count++;
-            return INF_SCORE - depth; // Black is checkmated
-        } else if (terminal == thc::TERMINAL_WSTALEMATE || terminal == thc::TERMINAL_BSTALEMATE) {
-            debug_node_count++;
-            return 0.0f; // Stalemate is a draw
+        // Check for checkmate or stalemate
+        thc::TERMINAL terminal;
+        if (cr.Evaluate(terminal)) {
+            if (terminal == thc::TERMINAL_WCHECKMATE) {
+                debug_node_count++;
+                return {-INF_SCORE + depth, null_move}; // White is checkmated
+            } else if (terminal == thc::TERMINAL_BCHECKMATE) {
+                debug_node_count++;
+                return {INF_SCORE - depth, null_move}; // Black is checkmated
+            } else if (terminal == thc::TERMINAL_WSTALEMATE || terminal == thc::TERMINAL_BSTALEMATE) {
+                debug_node_count++;
+                return {0.0f, null_move}; // Stalemate is a draw
+            }
         }
-    }
-
-    if (depth == max_depth) {
-        debug_node_count++;
-        return static_eval(cr);
+        if (depth == max_depth) {
+            debug_node_count++;
+            return {static_eval(cr), null_move};
+        }
     }
 
     std::vector<thc::Move> legal_moves;
     cr.GenLegalMoveList(legal_moves);
-
-    if (legal_moves.empty()) {
-        // No legal moves: checkmate or stalemate? Shouldn't go here.
-        return 0.0f;
-    }
 
     // Assign scores to moves
     std::vector<std::pair<float, thc::Move>> scored_moves;
@@ -558,142 +622,75 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
         return a.first > b.first;
     });
 
-    Score best_score = is_white_player ? -INF_SCORE : INF_SCORE;
 
-    for (size_t i = 0; i < scored_moves.size(); i++) {
-        auto& move = scored_moves[i].second; // Ensure 'move' is non-const
+    std::pair<SerialEngine::Score, thc::Move> ans_pair;
 
-        // Push the move
-        cr.PushMove(move);
+    if (nproc <= legal_moves.size()) {
+        MPI_Comm my_comm;
+        MPI_Comm_split(comm, pid, pid, &my_comm);
+        // only contains me in the subset
+        bool found = false;
 
-        // Recurse
-        thc::Move temp_best_move;
-        Score current_score = solve_serial_engine(
-            cr,
-            !is_white_player,
-            temp_best_move,
-            depth + 1,
-            max_depth,
-            alpha_score,
-            beta_score
-        );
+        for (int i=pid;i<scored_moves.size();i+=nproc) {
+            thc::ChessRules cr_copy = cr;
+            cr_copy.PushMove(scored_moves[i].second);
 
-        // Pop the move
-        cr.PopMove(move);
-
-        // Check if time limit was reached during recursion
-        if (time_limit_reached) {
-            return 0.0f;
-        }
-
-        if (is_white_player) {
-            if (current_score > best_score) {
-                best_score = current_score;
-                if (depth == 0) {
-                    best_move = move;
+            auto curr_ans = solve_serial_engine(cr_copy, !is_white_player, depth+1, max_depth, alpha_score, beta_score, my_comm);
+            if (!found) {
+                ans_pair = curr_ans;
+                found = true;
+                ans_pair.second = scored_moves[i].second;
+            }
+            else {
+                if (is_white_player and ans_pair.first > curr_ans.first) {
+                    ans_pair.first = curr_ans.first;
+                    ans_pair.second = scored_moves[i].second;
                 }
-                alpha_score = std::max(alpha_score, best_score);
-            }
-            if (beta_score <= alpha_score) {
-                
-                break; // Beta cutoff
-            }
-        } else {
-            if (current_score < best_score) {
-                best_score = current_score;
-                if (depth == 0) {
-                    best_move = move;
+                else if(!is_white_player and ans_pair.first < curr_ans.first) {
+                    ans_pair.first = curr_ans.first;
+                    ans_pair.second = scored_moves[i].second;
                 }
-                beta_score = std::min(beta_score, best_score);
             }
-            if (beta_score <= alpha_score) {
-                break; // Alpha cutoff
-            }
-        }
-    }
 
-    return best_score;
-}
-
-thc::Move SerialEngine::solve(thc::ChessRules& cr, bool is_white_player) {
-    this->time_limit_reached = false;
-    this->start_time = std::chrono::steady_clock::now();
-
-    thc::Move best_move_so_far;
-    bool move_found = false;
-
-    for (int current_depth = 1; current_depth <= MAX_DEPTH; ++current_depth) {
-        if (time_limit_reached) break;
-
-        thc::Move current_best_move;
-        Score current_score = solve_serial_engine(
-            cr, is_white_player, current_best_move, 0, current_depth, -INF_SCORE, INF_SCORE
-        );
-
-        if (time_limit_reached) break;
-
-        best_move_so_far = current_best_move;
-        move_found = true;
-    }
-
-    return move_found ? best_move_so_far : thc::Move();
-}
-
-thc::Move SerialEngine::solve_mpi(thc::ChessRules& cr, bool is_white_player, int mpi_rank, int mpi_size) {
-    std::vector<thc::Move> legal_moves;
-    cr.GenLegalMoveList(legal_moves);
-    int num_moves = legal_moves.size();
-
-    if (mpi_rank == 0) {
-        // Master process
-        int active_workers = std::min(mpi_size - 1, num_moves);
-        std::vector<float> scores(num_moves, is_white_player ? -INF_SCORE : INF_SCORE);
-        std::vector<thc::Move> results(num_moves);
-
-        // Send moves to workers
-        for (int i = 0; i < active_workers; i++) {
-            MPI_Send(&legal_moves[i], sizeof(thc::Move), MPI_BYTE, i + 1, 0, MPI_COMM_WORLD);
-        }
-
-        // Collect results
-        for (int i = 0; i < num_moves; i++) {
-            float score;
-            thc::Move move;
-
-            MPI_Recv(&score, 1, MPI_FLOAT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            MPI_Recv(&move, sizeof(thc::Move), MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-            scores[i] = score;
-            results[i] = move;
-
-            if (active_workers < num_moves) {
-                MPI_Send(&legal_moves[active_workers], sizeof(thc::Move), MPI_BYTE, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD);
-                active_workers++;
+            if (is_white_player) {
+                beta_score = std::min(beta_score, ans_pair.first);
+                if (beta_score <= alpha_score) {
+                    break;
+                    // (no pruning) 
+                }
             } else {
-                thc::Move dummy;
-                MPI_Send(&dummy, sizeof(thc::Move), MPI_BYTE, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD);
+                alpha_score = std::max(alpha_score, ans_pair.first);
+                if (beta_score <= alpha_score) {
+                    break;
+                    // (no pruning)
+                }
             }
         }
+        
+        MPI_Comm_free(&my_comm);
+    }
+    else {
+        MPI_Comm my_comm;
+        int my_move_ind = pid % scored_moves.size();
+        MPI_Comm_split(comm, my_move_ind, pid, &my_comm);
 
-        auto best_it = std::max_element(scores.begin(), scores.end());
-        return results[std::distance(scores.begin(), best_it)];
-    } else {
-        // Worker process
-        while (true) {
-            thc::Move move;
-            MPI_Status status;
+        thc::ChessRules cr_copy = cr;
+        cr_copy.PushMove(scored_moves[my_move_ind].second);
 
-            MPI_Recv(&move, sizeof(thc::Move), MPI_BYTE, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            if (status.MPI_TAG == 1) break;
+        ans_pair = solve_serial_engine(cr_copy, !is_white_player, depth+1, max_depth, alpha_score, beta_score, my_comm);
+        ans_pair.second = scored_moves[my_move_ind].second;
 
-            cr.PushMove(move);
-            float score = solve_serial_engine(cr, !is_white_player, move, 1, MAX_DEPTH, -INF_SCORE, INF_SCORE);
-            cr.PopMove(move);
-
-            MPI_Send(&score, 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
-            MPI_Send(&move, sizeof(thc::Move), MPI_BYTE, 0, 0, MPI_COMM_WORLD);
-        }
+        MPI_Comm_free(&my_comm);
     }
 
-    return thc::Move();
+    std::pair<SerialEngine::Score, thc::Move> best_ans;
+
+    if (is_white_player) {
+        MPI_Allreduce(&ans_pair, &best_ans, 1, MPI_FLOAT_INT, MPI_MINLOC, comm);
+    }
+    else {
+        MPI_Allreduce(&ans_pair, &best_ans, 1, MPI_FLOAT_INT, MPI_MAXLOC, comm);
+    }
+
+    return best_ans;
 }

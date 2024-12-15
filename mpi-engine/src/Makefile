@@ -3,9 +3,10 @@
 # Compiler and flags
 CXX = mpic++
 CXXFLAGS = -Wall -O3 -std=c++17
+# CXXFLAGS = -Wall -g -std=c++17
 
 # Target executable
-TARGET = chess-engine
+TARGET = chess-engine 
 
 # Source files
 SRCS = main.cpp serial-engine.cpp thc.cpp
@@ -27,4 +28,3 @@ $(TARGET): $(OBJS)
 # Clean up build files
 clean:
 	rm -f $(TARGET) $(OBJS)
-

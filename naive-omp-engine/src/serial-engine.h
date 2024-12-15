@@ -13,7 +13,7 @@ public:
     using Score = float;
 
     static constexpr Score INF_SCORE = 1000000.0f;
-    static constexpr int MAX_DEPTH = 50;
+    static constexpr int MAX_DEPTH = 5;
     static constexpr int TIME_LIMIT_SECONDS = 100; // Time limit in seconds
 
     // Solve function to find the best move
