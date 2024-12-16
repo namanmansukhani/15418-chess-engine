@@ -1,3 +1,10 @@
+/* main.cpp
+ * 
+ *  This is the entry point for ./chess-engine. It creates a loop where the player can type algebraic notation
+ *  as input and the computer will compute the output in the terminal with a display. 
+ *
+ */
+
 #include <iostream>
 #include <string>
 #include <vector>
