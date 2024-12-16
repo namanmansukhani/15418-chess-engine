@@ -1,5 +1,5 @@
-#ifndef SERIAL_ENGINE_H
-#define SERIAL_ENGINE_H
+#ifndef NAIVE_OMP_ENGINE_H
+#define NAIVE_OMP_ENGINE_H
 
 #include "thc.h"      // Include the THC library header
 #include <chrono>
@@ -8,7 +8,7 @@
 
 #include <omp.h>
 
-class SerialEngine {
+class NaiveOMPEngine {
 public:
     using Score = float;
 
@@ -21,7 +21,7 @@ public:
 
 private:
     // Recursive search function with alpha-beta pruning and iterative deepening
-    Score solve_serial_engine(
+    Score solve_naive_omp_engine(
         thc::ChessRules& cr,
         bool is_white_player,
         thc::Move& best_move,
@@ -59,4 +59,4 @@ private:
     std::atomic<bool> time_limit_reached;
 };
 
-#endif // SERIAL_ENGINE_H
+#endif
