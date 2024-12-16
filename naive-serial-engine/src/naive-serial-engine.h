@@ -19,7 +19,7 @@ public:
 
 private:
     // Recursive search function with alpha-beta pruning and iterative deepening
-    Score solve_serial_engine(
+    Score solve_naive_serial_engine(
         thc::ChessRules& cr,
         bool is_white_player,
         thc::Move& best_move,

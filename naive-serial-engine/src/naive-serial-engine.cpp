@@ -447,7 +447,7 @@ thc::Move NaiveSerialEngine::solve(thc::ChessRules& cr, bool is_white_player) {
         }
 
         thc::Move current_best_move;
-        Score current_score = solve_serial_engine(
+        Score current_score = solve_naive_serial_engine(
             cr,
             is_white_player,
             current_best_move,
@@ -490,7 +490,7 @@ thc::Move NaiveSerialEngine::solve(thc::ChessRules& cr, bool is_white_player) {
     }
 }
 
-NaiveSerialEngine::Score NaiveSerialEngine::solve_serial_engine(
+NaiveSerialEngine::Score NaiveSerialEngine::solve_naive_serial_engine(
     thc::ChessRules& cr,
     bool is_white_player,
     thc::Move& best_move,
@@ -557,7 +557,7 @@ NaiveSerialEngine::Score NaiveSerialEngine::solve_serial_engine(
 
         // Recurse
         thc::Move temp_best_move;
-        Score current_score = solve_serial_engine(
+        Score current_score = solve_naive_serial_engine(
             cr,
             !is_white_player,
             temp_best_move,
