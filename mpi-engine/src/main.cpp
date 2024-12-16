@@ -10,7 +10,7 @@
 #include <vector>
 #include <algorithm>
 #include "thc.h"
-#include "serial-engine.h"
+#include "mpi-engine.h"
 
 
 void print_board(thc::ChessRules& cr) {
@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
     thc::ChessRules cr;
     cr.Forsyth("startpos");
 
-    SerialEngine engine;
+    MPIEngine engine;
 
     bool game_over = false;
     thc::TERMINAL terminal;

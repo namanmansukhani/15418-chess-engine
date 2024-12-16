@@ -1,5 +1,5 @@
-#ifndef SERIAL_ENGINE_H
-#define SERIAL_ENGINE_H
+#ifndef MPI_ENGINE_H
+#define MPI_ENGINE_H
 
 #include "thc.h"      // Include the THC library header
 #include <chrono>
@@ -17,7 +17,7 @@
 //     print(tail...);
 // }
 
-class SerialEngine {
+class MPIEngine {
 public:
     using Score = float;
 
@@ -30,7 +30,7 @@ public:
 
 private:
     // Recursive search function with alpha-beta pruning and iterative deepening
-    std::pair<Score, thc::Move> solve_serial_engine(
+    std::pair<Score, thc::Move> solve_mpi_engine(
         thc::ChessRules& cr,
         bool is_white_player,
         int depth,
@@ -68,4 +68,4 @@ private:
     std::atomic<bool> time_limit_reached;
 };
 
-#endif // SERIAL_ENGINE_H
+#endif

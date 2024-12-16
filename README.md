@@ -17,6 +17,6 @@ serial-engine, omp-engine, mpi-engine use alpha beta pruning, and the naive vers
 # Build
 
 cd into each engine's src folder and type make. Then type ./chess-engine. For mpi engines, you need to use mpirun and for mpi and openmp engines you can to specify how many threads to use.
-Use the -np flag for mpi and -[num theads] for OpenMP (./chess-engine -2 will use 2 threads)
+Use the -np flag for mpi and -[num theads] for OpenMP (./chess-engine 2 will use 2 threads)
 
 If make does not work, try to change to complier from g++-14 (MacOS) in the Makefile to g++ (Linux) for OpenMP. Use the mpic++ compiler for the two MPI engines.
