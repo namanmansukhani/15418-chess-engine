@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
 
                 print_board(cr);
                 std::string user_input;
-                std::cout << "Your move ("<< move_name<< "): "<<std::flush;
+                std::cout << "Your move ("<< move_name<< "): "<<std::endl;
                 std::getline(std::cin, user_input);
 
                 // Parse and apply the move

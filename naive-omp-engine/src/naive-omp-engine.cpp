@@ -591,16 +591,6 @@ NaiveOMPEngine::Score NaiveOMPEngine::solve_naive_omp_engine(
             beta_score
         );
 
-        // Pop the move
-        // cr.PopMove(move);
-
-        // Check if time limit was reached during recursion
-        if (time_limit_reached) {
-            done_flag = TIME_LIMIT_EXCEEDED;
-            continue;
-            // return 0.0f;
-        }
-
         if (is_white_player) current_score = -current_score;
 
         // #pragma omp critical
@@ -609,21 +599,6 @@ NaiveOMPEngine::Score NaiveOMPEngine::solve_naive_omp_engine(
             result.score = current_score;
             result.index = i;
         }
-        // if (is_white_player) {
-        //     if (current_score > best_score) {
-        //         best_score = current_score;
-        //         if (depth == 0) {
-        //             best_move = move;
-        //         }
-        //     }
-        // } else {
-        //     if (current_score < best_score) {
-        //         best_score = current_score;
-        //         if (depth == 0) {
-        //             best_move = move;
-        //         }
-        //     }
-        // }
         
     }
 

@@ -13,14 +13,6 @@
 #include "naive-mpi-engine.h"
 
 
-// void print(){std::cout<<std::endl;}
-// void print(bool endline) {if(endline)std::cout<<std::endl;}
-// template<typename T, typename ...TAIL>
-// void print(const T &t, TAIL... tail)
-// {
-//     std::cout<<t<<' ';
-//     print(tail...);
-// }
 
 void print_board(thc::ChessRules& cr) {
     std::cout << cr.ToDebugStr() << std::endl;
@@ -60,9 +52,6 @@ int main(int argc, char* argv[]) {
             thc::Move best_move = engine.solve(cr, true);
             if (mpi_id == 0) std::cout << "Computer ("<<move_name<<") plays: " << best_move.NaturalOut(&cr) << std::endl;
             cr.PushMove(best_move);
-
-            // std::cout<<"LOL"<<std::endl;
-            // break;
         }
         else {
 
@@ -71,7 +60,7 @@ int main(int argc, char* argv[]) {
 
                 print_board(cr);
                 std::string user_input;
-                std::cout << "Your move ("<< move_name<< "): "<<std::flush;
+                std::cout << "Your move ("<< move_name<< "): "<<std::endl;
                 std::getline(std::cin, user_input);
 
                 // Parse and apply the move
