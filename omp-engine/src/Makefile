@@ -1,14 +1,14 @@
 # Makefile for Chess Engine Project
 
 # Compiler and flags
-CXX = g++-14
+CXX = g++
 CXXFLAGS = -Wall -O3 -std=c++17 -fopenmp
 
 # Target executable
 TARGET = chess-engine
 
 # Source files
-SRCS = main.cpp serial-engine.cpp thc.cpp
+SRCS = main.cpp omp-engine.cpp thc.cpp
 
 # Object files (replace .cpp with .o)
 OBJS = $(SRCS:.cpp=.o)

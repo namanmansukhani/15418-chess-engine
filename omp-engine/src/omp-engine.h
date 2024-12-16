@@ -1,27 +1,27 @@
-#ifndef SERIAL_ENGINE_H
-#define SERIAL_ENGINE_H
+#ifndef OMP_ENGINE_H
+#define OMP_ENGINE_H
 
-#include "thc.h"      // Include the THC library header
+#include "thc.h"      
 #include <chrono>
 #include <atomic>
-#include <vector>     // For std::vector
+#include <vector>     
 
 #include <omp.h>
 
-class SerialEngine {
+class OMPEngine {
 public:
     using Score = float;
 
     static constexpr Score INF_SCORE = 1000000.0f;
     static constexpr int MAX_DEPTH = 7;
-    static constexpr int TIME_LIMIT_SECONDS = 60; // Time limit in seconds
+    static constexpr int TIME_LIMIT_SECONDS = 60; 
 
     // Solve function to find the best move
     thc::Move solve(thc::ChessRules& cr, bool is_white_player);
 
 private:
     // Recursive search function with alpha-beta pruning and iterative deepening
-    Score solve_serial_engine(
+    Score solve_omp_engine(
         thc::ChessRules& cr,
         bool is_white_player,
         thc::Move& best_move,
@@ -59,4 +59,4 @@ private:
     std::atomic<bool> time_limit_reached;
 };
 
-#endif // SERIAL_ENGINE_H
+#endif 

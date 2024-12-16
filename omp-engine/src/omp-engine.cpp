@@ -1,67 +1,11 @@
 /*
- *  serial-engine
+ *  omp-engine
  *
- *  Usually, chess engines implement the following algorithms to find moves for each of the different phases of the game.
- * 
- *  Opening: Book (Famous openings are extensively studied and search space is not extensive so we can use a database.) 
- *  Midgame: Search
- *  Endgame: Search + Syzygy (When 8 pieces are left, chess is solved. Just find the correct moves from a syzygy database.)
- * 
- *  So far I only implemented part of Search. The other ones are not related to parallelism.
- * 
- *  Searching is done via alpha-beta pruning. We completely search each layer. We search using iterative deepening 
- *  (DFS version of BFS). For up to 20 seconds total, compute game tree up to depth i and compute the node 
- *  (call static_eval). Then propagate back up. If the 20 seconds are not up, we compute the tree to depth i + 1, and
- *  so on.
- * 
- * 
- *  Book (Unimplemented)
- * 
- *  Search: 
- * 
- *  Iterative deepening (Implemented)
- * 
- *             Timestep 1                              Timestep 2                             Timestep 3 (20 seconds up!)
- *              Depth = 1                               Depth = 2                                     Depth = 3                            
- *             
- *            compute node A                         compute node A                                  compute node A                                  
- *                                             /        |       |     \                           /                  
- *                                          compute node B ... compute node E                   compute node B  X cancel 
- * 
- * 
- *                                                     ^
- *                                                  Use results for this one
- * 
- * 
- *  Static evaluation + Alpha-beta pruning (Implemented)
- * 
- *  When we reach the bottom of the search tree, we will put the board into a static evaluation function. We will use 
- *  minimax to determine what position is best for the next choice. Alpha-beta pruning will be used. 
- * 
- *                          max                     compute node A                                  
- *                           ^                 /        |       |     \                                           
- *                          min              compute node B ... compute node E
- *  To do this we use piece square tables or heat maps as well as add bonuses for things like pawn structure, 
- *  king safety, etc. NNUE (unimplemented) is also used to adjust the scoring. 
- * 
- *  Move reordering (Implemented)
- *  If we search branches with "important" moves first, this will greatly help with alpha-beta pruning. 
- *
- * 
- *  Quiescence Search (Unimplemented)
- * 
- *  At the end of each move we should continue searching until captures are no longer possible.
- * 
- *  Transposition Tables (Unimplemented)
- *  
- *  To help speed up search, different transpositions that have already been scored should be stored in a hash map. This prevents
- *  needing to search the same position twice (DP).
- * 
- *  Syzygy (Unimplemented) 
+ *  multithreaded alpha beta pruning
  */
 
 
-#include "serial-engine.h"
+#include "omp-engine.h"
 #include <algorithm>
 #include <map>
 #include <cctype>   
@@ -143,7 +87,7 @@ const int king_table[64] = {
 /* Helper function for move scoring. Capturing larger piece is prioritized first.
  */
 
-float SerialEngine::score_move(const thc::Move& move, thc::ChessRules& cr) {
+float OMPEngine::score_move(const thc::Move& move, thc::ChessRules& cr) {
     float score = 0.0f;
 
     // Check if the move is a capture
@@ -196,7 +140,7 @@ float SerialEngine::score_move(const thc::Move& move, thc::ChessRules& cr) {
 }
 
 // Add a mobility bonus for the pieces (not sure if this helps).
-int SerialEngine::evaluate_mobility(thc::ChessRules& cr, bool is_white, const std::vector<int>& piece_indices) {
+int OMPEngine::evaluate_mobility(thc::ChessRules& cr, bool is_white, const std::vector<int>& piece_indices) {
     int mobility_score = 0;
     thc::ChessRules cr_copy = cr;
     std::vector<thc::Move> moves;
@@ -219,7 +163,7 @@ int SerialEngine::evaluate_mobility(thc::ChessRules& cr, bool is_white, const st
     return mobility_score;
 }
 
-int SerialEngine::evaluate_pawn_structure(const std::vector<int>& pawn_files, bool is_white) {
+int OMPEngine::evaluate_pawn_structure(const std::vector<int>& pawn_files, bool is_white) {
     int score = 0;
 
     // Count pawns on each file
@@ -265,7 +209,7 @@ int SerialEngine::evaluate_pawn_structure(const std::vector<int>& pawn_files, bo
     return score;
 }
 
-int SerialEngine::evaluate_king_safety(thc::ChessRules& cr, int king_index, bool is_white, bool endgame) {
+int OMPEngine::evaluate_king_safety(thc::ChessRules& cr, int king_index, bool is_white, bool endgame) {
     int safety_score = 0;
 
     if (king_index == -1) return safety_score; // King not found
@@ -307,7 +251,7 @@ int SerialEngine::evaluate_king_safety(thc::ChessRules& cr, int king_index, bool
     return safety_score;
 }
 
-int SerialEngine::evaluate_king_activity(int own_king_index, int opponent_king_index, bool is_white) {
+int OMPEngine::evaluate_king_activity(int own_king_index, int opponent_king_index, bool is_white) {
     int activity_score = 0;
 
     int rank = own_king_index / 8;
@@ -340,12 +284,12 @@ int SerialEngine::evaluate_king_activity(int own_king_index, int opponent_king_i
 
 const int ENDGAME_MATERIAL_THRESHOLD = 2400; // Adjust based on testing
 
-bool SerialEngine::is_endgame(int white_material, int black_material) {
+bool OMPEngine::is_endgame(int white_material, int black_material) {
     int total_material = white_material + black_material;
     return total_material <= ENDGAME_MATERIAL_THRESHOLD; // Define a threshold, e.g., 2400 (two rooks)
 }
 
-SerialEngine::Score SerialEngine::static_eval(thc::ChessRules& cr) {
+OMPEngine::Score OMPEngine::static_eval(thc::ChessRules& cr) {
     Score total_score = 0.0f;
 
     // Material counts
@@ -496,7 +440,7 @@ SerialEngine::Score SerialEngine::static_eval(thc::ChessRules& cr) {
 
 std::atomic<int> debug_node_count(0);
 
-thc::Move SerialEngine::solve(thc::ChessRules& cr, bool is_white_player) {
+thc::Move OMPEngine::solve(thc::ChessRules& cr, bool is_white_player) {
     this->time_limit_reached = false;
     this->start_time = std::chrono::steady_clock::now();
 
@@ -510,7 +454,7 @@ thc::Move SerialEngine::solve(thc::ChessRules& cr, bool is_white_player) {
         }
 
         thc::Move current_best_move;
-        Score current_score = solve_serial_engine(
+        Score current_score = solve_omp_engine(
             cr,
             is_white_player,
             current_best_move,
@@ -553,7 +497,7 @@ thc::Move SerialEngine::solve(thc::ChessRules& cr, bool is_white_player) {
     }
 }
 
-SerialEngine::Score SerialEngine::solve_serial_engine(
+OMPEngine::Score OMPEngine::solve_omp_engine(
     thc::ChessRules& cr,
     bool is_white_player,
     thc::Move& best_move,
@@ -643,7 +587,7 @@ SerialEngine::Score SerialEngine::solve_serial_engine(
 
         // Recurse
         thc::Move temp_best_move;
-        Score current_score = solve_serial_engine(
+        Score current_score = solve_omp_engine(
             cr_copy,
             !is_white_player,
             temp_best_move,
