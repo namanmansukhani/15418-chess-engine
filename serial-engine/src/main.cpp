@@ -1,3 +1,11 @@
+/* main.cpp
+ * 
+ *  This is the entry point for ./chess-engine. It creates a loop where the player can type algebraic notation
+ *  as input and the computer will compute the output in the terminal with a display. 
+ *
+ */
+
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -13,7 +21,6 @@ int main(int argc, char* argv[]) {
     bool computer_is_white = false;
     bool computer_is_black = false;
 
-    // Parse command-line arguments
     if (argc > 1) {
         std::string arg = argv[1];
         if (arg == "--white") {
@@ -25,11 +32,9 @@ int main(int argc, char* argv[]) {
             return 1;
         }
     } else {
-        // Default to computer playing black
         computer_is_black = true;
     }
 
-    // Initialize the game
     thc::ChessRules cr;
     cr.Forsyth("startpos");
 
@@ -41,18 +46,15 @@ int main(int argc, char* argv[]) {
     while (!game_over) {
         if (cr.WhiteToPlay()) {
             if (computer_is_white) {
-                // Computer's turn
                 thc::Move best_move = engine.solve(cr, true);
                 std::cout << "Computer (White) plays: " << best_move.NaturalOut(&cr) << std::endl;
                 cr.PushMove(best_move);
             } else {
-                // Human's turn
                 print_board(cr);
                 std::string user_input;
                 std::cout << "Your move (White): ";
                 std::getline(std::cin, user_input);
 
-                // Parse and apply the move
                 thc::Move user_move;
                 bool move_ok = user_move.NaturalIn(&cr, user_input.c_str());
                 if (!move_ok) {
@@ -69,18 +71,15 @@ int main(int argc, char* argv[]) {
             }
         } else {
             if (computer_is_black) {
-                // Computer's turn
                 thc::Move best_move = engine.solve(cr, false);
                 std::cout << "Computer (Black) plays: " << best_move.NaturalOut(&cr) << std::endl;
                 cr.PushMove(best_move);
             } else {
-                // Human's turn
                 print_board(cr);
                 std::string user_input;
                 std::cout << "Your move (Black): ";
                 std::getline(std::cin, user_input);
 
-                // Parse and apply the move
                 thc::Move user_move;
                 bool move_ok = user_move.NaturalIn(&cr, user_input.c_str());
                 if (!move_ok) {
@@ -97,10 +96,8 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Display the board
         print_board(cr);
 
-        // Check for game termination
         if (cr.Evaluate(terminal)) {
             if (terminal == thc::TERMINAL_WCHECKMATE) {
                 std::cout << "White is checkmated. Black wins!" << std::endl;
@@ -114,7 +111,6 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Check for draw
         thc::DRAWTYPE draw_type;
         if (cr.IsDraw(false, draw_type)) {
             std::cout << "Draw due to ";
