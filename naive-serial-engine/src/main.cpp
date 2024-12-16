@@ -10,7 +10,7 @@
 #include <vector>
 #include <algorithm>
 #include "thc.h"
-#include "serial-engine.h"
+#include "naive-serial-engine.h"
 
 void print_board(thc::ChessRules& cr) {
     std::cout << cr.ToDebugStr() << std::endl;
@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
     thc::ChessRules cr;
     cr.Forsyth("startpos");
 
-    SerialEngine engine;
+    NaiveSerialEngine engine;
 
     bool game_over = false;
     thc::TERMINAL terminal;

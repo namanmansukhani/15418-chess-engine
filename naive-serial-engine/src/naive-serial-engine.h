@@ -1,12 +1,12 @@
-#ifndef SERIAL_ENGINE_H
-#define SERIAL_ENGINE_H
+#ifndef NAIVE_SERIAL_ENGINE_H
+#define NAIVE_SERIAL_ENGINE_H
 
 #include "thc.h"      // Include the THC library header
 #include <chrono>
 #include <atomic>
 #include <vector>     // For std::vector
 
-class SerialEngine {
+class NaiveSerialEngine {
 public:
     using Score = float;
 
@@ -57,4 +57,4 @@ private:
     std::atomic<bool> time_limit_reached;
 };
 
-#endif // SERIAL_ENGINE_H
+#endif 
