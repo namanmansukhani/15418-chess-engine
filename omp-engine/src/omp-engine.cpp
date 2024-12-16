@@ -597,16 +597,6 @@ OMPEngine::Score OMPEngine::solve_omp_engine(
             beta_score
         );
 
-        // Pop the move
-        // cr.PopMove(move);
-
-        // Check if time limit was reached during recursion
-        if (time_limit_reached) {
-            done_flag = TIME_LIMIT_EXCEEDED;
-            continue;
-            // return 0.0f;
-        }
-
         // #pragma omp critical
         if (use_parallelism) omp_set_lock(&omp_lock);
         if (is_white_player) {
@@ -619,8 +609,6 @@ OMPEngine::Score OMPEngine::solve_omp_engine(
             }
             if (beta_score <= alpha_score) {
                 done_flag = AB_BREAK;
-                // continue;
-                // break; // Beta cutoff
             }
         } else {
             if (current_score < best_score) {
@@ -632,8 +620,6 @@ OMPEngine::Score OMPEngine::solve_omp_engine(
             }
             if (beta_score <= alpha_score) {
                 done_flag = AB_BREAK;
-                // continue;
-                // break; // Alpha cutoff
             }
         }
         if (use_parallelism) omp_unset_lock(&omp_lock);

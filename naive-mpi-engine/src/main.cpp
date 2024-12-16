@@ -10,7 +10,7 @@
 #include <vector>
 #include <algorithm>
 #include "thc.h"
-#include "serial-engine.h"
+#include "naive-mpi-engine.h"
 
 
 // void print(){std::cout<<std::endl;}
@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
     thc::ChessRules cr;
     cr.Forsyth("startpos");
 
-    SerialEngine engine;
+    NaiveMPIEngine engine;
 
     bool game_over = false;
     thc::TERMINAL terminal;

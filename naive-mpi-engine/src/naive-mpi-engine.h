@@ -1,23 +1,15 @@
-#ifndef SERIAL_ENGINE_H
-#define SERIAL_ENGINE_H
+#ifndef NAIVE_MPI_ENGINE_H
+#define NAIVE_MPI_ENGINE_H
 
-#include "thc.h"      // Include the THC library header
+#include "thc.h"      
 #include <chrono>
 #include <atomic>
-#include <vector>     // For std::vector
+#include <vector>     
 
 #include "mpi.h"
 
-// void print(){std::cout<<std::endl;}
-// void print(bool endline) {if(endline)std::cout<<std::endl;}
-// template<typename T, typename ...TAIL>
-// void print(const T &t, TAIL... tail)
-// {
-//     std::cout<<t<<' ';
-//     print(tail...);
-// }
 
-class SerialEngine {
+class NaiveMPIEngine {
 public:
     using Score = float;
 
@@ -30,7 +22,7 @@ public:
 
 private:
     // Recursive search function with alpha-beta pruning and iterative deepening
-    std::pair<Score, thc::Move> solve_serial_engine(
+    std::pair<Score, thc::Move> solve_naive_mpi_engine(
         thc::ChessRules& cr,
         bool is_white_player,
         int depth,
@@ -66,4 +58,4 @@ private:
     std::atomic<bool> time_limit_reached;
 };
 
-#endif // SERIAL_ENGINE_H
+#endif 

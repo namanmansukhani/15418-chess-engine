@@ -9,7 +9,7 @@ CXXFLAGS = -Wall -O3 -std=c++17
 TARGET = chess-engine 
 
 # Source files
-SRCS = main.cpp serial-engine.cpp thc.cpp
+SRCS = main.cpp naive-mpi-engine.cpp thc.cpp
 
 # Object files (replace .cpp with .o)
 OBJS = $(SRCS:.cpp=.o)
